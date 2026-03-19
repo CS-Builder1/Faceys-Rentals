@@ -7,5 +7,8 @@ export default defineConfig({
   server: {
     port: 3002,
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+  },
   // Trigger restart for new dependencies
 })
