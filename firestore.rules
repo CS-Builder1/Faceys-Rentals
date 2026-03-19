@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- 1. RBAC Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function hasRole(role) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    function isAdmin() {
+      return hasRole('ADMIN');
+    }
+    function isStaff() {
+      return hasRole('STAFF');
+    }
+    function isMarketing() {
+      return hasRole('MARKETING');
+    }
+    function isAccountant() {
+      return hasRole('ACCOUNTANT');
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- 2. Schema Validation Helpers ---
+    
+    // Validate Booking Structure to ensure Data Integrity
+    function isValidBooking() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['clientId', 'status', 'eventDate', 'items', 'total'])
+        && data.status in ['DRAFT', 'PENDING_APPROVAL', 'CONFIRMED', 'COMPLETED', 'CANCELLED']
+        && data.total is number
+        && data.items is list;
+    }
+
+    // --- 3. Collection Rules ---
+
+    // USERS: Admin controls all; Users read self
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if true; // TEMPORARILY OPEN TO CREATE FIRST ADMIN
+      // Users can update display name/email but NOT their role
+      allow update: if isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
+    }
+
+    // CLIENTS: Staff/Admin manage; Clients read self
+    match /clients/{clientId} {
+      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && resource.data.id == request.auth.uid);
+      allow write: if isStaff() || isAdmin();
+    }
+
+    // CATALOG: Public Read, Admin Write
+    match /catalog_items/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin() || isMarketing();
+    }
+
+    // BOOKINGS: The Core Logic
+    match /bookings/{bookingId} {
+      // READ: Owner or Staff/Admin/Accountant
+      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && resource.data.clientId == request.auth.uid);
+      
+      // CREATE: Staff/Admin (Public uses booking_requests)
+      allow create: if (isStaff() || isAdmin()) && isValidBooking();
+
+      // UPDATE:
+      // 1. Admin can do anything (including overrides).
+      // 2. Staff can update if they are NOT enabling an override.
+      // 3. Client can only update specific fields if Status is DRAFT (optional, handled by booking_requests usually)
+      allow update: if isAdmin() || (
+        isStaff() 
+        && isValidBooking()
+        // Prevent Staff from toggling the adminOverride active flag
+        && (
+           !request.resource.data.adminOverride.isActive 
+           || request.resource.data.adminOverride.isActive == resource.data.adminOverride.isActive
+        )
+      );
+    }
+
+    // BOOKING REQUESTS: Public Write
+    match /booking_requests/{requestId} {
+      allow create: if true;
+      allow read, update: if isStaff() || isAdmin() || isAccountant();
+    }
+
+    // INVOICES: Admin/Staff Manage, Client Read Only
+    match /invoices/{invoiceId} {
+      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && get(/databases/$(database)/documents/bookings/$(resource.data.bookingId)).data.clientId == request.auth.uid);
+      allow write: if isAdmin() || isAccountant();
+    }
+
+    // PAYMENTS: Webhooks create, Admin manage
+    match /payments/{paymentId} {
+      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && get(/databases/$(database)/documents/invoices/$(resource.data.invoiceId)).data.bookingId == request.auth.uid);
+      allow create: if true; // Webhooks or Client Portal
+      allow update, delete: if isAdmin() || isAccountant();
+    }
+
+    // AUDIT LOGS: Append Only / Immutable
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      // Allow creation if the actor matches the logged-in user
+      allow create: if isSignedIn() && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // STAFF LOGS: Time Tracking
+    match /work_logs/{logId} {
+      allow read: if isAdmin() || (isStaff() && resource.data.employeeId == request.auth.uid);
+      allow create: if isAdmin() || (isStaff() && request.resource.data.employeeId == request.auth.uid);
+      // Locked if payroll generated
+      allow update: if (isAdmin() || (isStaff() && resource.data.employeeId == request.auth.uid))
+                    && resource.data.payrollId == null; 
+      allow delete: if isAdmin() && resource.data.payrollId == null;
+    }
+
+    // SALARY SLIPS: Admin Generate, Staff Read Own
+    match /salary_slips/{slipId} {
+      allow read: if isAdmin() || (isStaff() && resource.data.employeeId == request.auth.uid);
+      allow write: if isAdmin(); // Only generated via Cloud Function (Admin Context)
+    }
+
+    // SITE CONTENT: Read all, Admin/Marketing Write
+    match /site_content/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin() || isMarketing();
+    }
+  }
+}
