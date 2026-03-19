@@ -18,6 +18,7 @@ Stabilizing the **Admin Dashboard** and **POS System** for staff use.
 - [x] Auth Role Management (Admin/Staff/Customer)
 - [x] Product Inventory Grid
 - [/] **ACTIVE WORKING BRANCH**: Staff Management Module
+- [x] **New**: Mass Inventory CSV (Export/Import)
 - [ ] Time Tracking (Clock-in/Clock-out)
 - [ ] Final Content Audit (Marketing roles)
 
@@ -36,4 +37,4 @@ Stabilizing the **Admin Dashboard** and **POS System** for staff use.
 - `firestore.rules`: To verify if roles have correct CRUD permissions.
 
 ---
-*Created by Antigravity on 2026-03-10.*
+*Last updated by Antigravity on 2026-03-19.*

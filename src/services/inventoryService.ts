@@ -91,4 +91,24 @@ export const inventoryService = {
     async remove(id: string): Promise<void> {
         await deleteDoc(doc(db, COLLECTION, id))
     },
+
+    async bulkImport(items: Partial<InventoryItem>[], onProgress?: (current: number, total: number) => void): Promise<void> {
+        let current = 0;
+        const total = items.length;
+        for (const item of items) {
+            try {
+                if (item.id) {
+                    const { id, createdAt, ...updateData } = item as any; // Don't override createdAt on update
+                    await this.update(id, updateData);
+                } else {
+                    const { id, ...createData } = item as any;
+                    await this.create(createData as any);
+                }
+            } catch (error) {
+                console.error(`Failed to import item ${item.name || item.id}`, error);
+            }
+            current++;
+            if (onProgress) onProgress(current, total);
+        }
+    }
 }

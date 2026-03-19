@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import Papa from 'papaparse'
+import toast from 'react-hot-toast'
 import { inventoryService } from '../../services/inventoryService'
 import { InventoryItem } from '../../types'
 import InventoryItemModal from '../../components/admin/InventoryItemModal'
@@ -46,6 +48,110 @@ export default function InventoryAdminPage() {
         }
     }
 
+    const handleExportCSV = () => {
+        console.log("Export triggered, items count:", items.length)
+        if (items.length === 0) {
+            toast.error("No inventory items to export.")
+            return
+        }
+
+        try {
+            const csvData = items.map(item => ({
+                id: item.id || '',
+                name: item.name || '',
+                category: item.category || '',
+                description: item.description || '',
+                totalQuantity: item.totalQuantity || 0,
+                internalCost: item.internalCost || 0,
+                rentalPrice: item.rentalPrice || 0,
+                cateringPrice: item.cateringPrice || '',
+                pricingModel: item.pricingModel || 'per_day',
+                status: item.status || 'active',
+                allowOverbooking: item.allowOverbooking || false,
+                notes: item.notes || '',
+                quickbooksItemId: item.quickbooksItemId || '',
+                images: item.images?.join('|') || ''
+            }))
+            const csv = Papa.unparse(csvData)
+            const filename = `inventory-export-${new Date().toISOString().split('T')[0]}.csv`
+            
+            // Using a Data URI instead of a Blob URL. 
+            // This is often more reliable for preserving filenames in certain Windows/Chrome configurations.
+            const BOM = "\ufeff"
+            const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(BOM + csv)
+            
+            const a = document.createElement('a')
+            a.style.display = 'none'
+            a.href = dataUri
+            a.download = filename
+            
+            document.body.appendChild(a)
+            a.click()
+            console.log("Export: Data URI download initiated for", filename)
+
+            setTimeout(() => {
+                if (document.body.contains(a)) {
+                    document.body.removeChild(a)
+                }
+            }, 500)
+
+            toast.success("Inventory exported successfully!")
+        } catch (err) {
+            console.error("Export failure:", err)
+            toast.error("Export failed.")
+        }
+    }
+
+    const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        console.log("Import triggered, file:", file?.name)
+        if (!file) return
+
+        setIsLoading(true)
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: async (results: Papa.ParseResult<any>) => {
+                try {
+                    const parsedItems = results.data.map((row: any) => ({
+                        ...(row.id ? { id: row.id } : {}),
+                        name: row.name,
+                        category: row.category,
+                        description: row.description,
+                        totalQuantity: Number(row.totalQuantity) || 0,
+                        internalCost: Number(row.internalCost) || 0,
+                        rentalPrice: Number(row.rentalPrice) || 0,
+                        cateringPrice: row.cateringPrice ? Number(row.cateringPrice) : undefined,
+                        pricingModel: row.pricingModel || 'per_day',
+                        status: row.status || 'active',
+                        allowOverbooking: row.allowOverbooking === 'true' || row.allowOverbooking === 'TRUE' || row.allowOverbooking === true,
+                        notes: row.notes,
+                        quickbooksItemId: row.quickbooksItemId,
+                        images: row.images ? row.images.split('|').filter(Boolean) : []
+                    }))
+
+                    console.log("Parsed items:", parsedItems.length)
+                    toast.loading(`Importing ${parsedItems.length} items...`, { id: 'import-toast' })
+                    await inventoryService.bulkImport(parsedItems)
+                    toast.success(`Successfully imported ${parsedItems.length} items!`, { id: 'import-toast' })
+                    await fetchInventory()
+                } catch (error) {
+                    console.error("Import error during processing:", error)
+                    toast.error("Failed to import inventory.", { id: 'import-toast' })
+                    setIsLoading(false)
+                }
+            },
+            error: (error: Error) => {
+                console.error("PapaParse parser error:", error)
+                toast.error("Failed to parse CSV file.")
+                setIsLoading(false)
+            }
+        })
+        
+        // reset input
+        e.target.value = ''
+    }
+
     return (
         <div className="p-8 md:p-12 space-y-12">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -54,6 +160,20 @@ export default function InventoryAdminPage() {
                     <p className="text-slate-500 font-medium">Add, edit, or remove rental equipment and catering packages.</p>
                 </div>
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={handleExportCSV}
+                        id="btn-export-csv"
+                        className="px-4 py-3 bg-slate-100 dark:bg-white/10 text-ocean-deep dark:text-white rounded-xl text-sm font-bold shadow-sm hover:scale-105 transition-all flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        Export
+                    </button>
+                    <button 
+                        onClick={() => document.getElementById('csv-upload')?.click()}
+                        className="px-4 py-3 bg-slate-100 dark:bg-white/10 text-ocean-deep dark:text-white rounded-xl text-sm font-bold shadow-sm hover:scale-105 transition-all flex items-center gap-2 cursor-pointer">
+                        <span className="material-symbols-outlined text-[18px]">upload</span>
+                        Import CSV
+                    </button>
+                    <input id="csv-upload" type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
                     <button
                         onClick={() => handleOpenModal()}
                         className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-all">
