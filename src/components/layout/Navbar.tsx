@@ -13,7 +13,12 @@ export default function Navbar() {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
     const { logout } = useAuth()
 
-    const isAdmin = userProfile?.role && ['admin', 'staff', 'owner'].includes(userProfile.role)
+    const userRole = userProfile?.role?.toUpperCase()
+    const canAccessAdmin = userRole && ['ADMIN', 'MARKETING', 'ACCOUNTANT', 'OWNER'].includes(userRole)
+    const isStaff = userRole === 'STAFF'
+    const hasDashboardAccess = canAccessAdmin || isStaff
+    const dashboardLink = isStaff ? '/staff/timeclock' : '/admin'
+    const dashboardLabel = isStaff ? 'Staff Dashboard' : 'Admin Dashboard'
 
     return (
         <header className="fixed top-0 w-full z-50 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-primary/10">
@@ -101,14 +106,14 @@ export default function Navbar() {
                                             My Profile
                                         </button>
                                         
-                                        {isAdmin && (
+                                        {hasDashboardAccess && (
                                             <Link 
-                                                to="/admin" 
+                                                to={dashboardLink}
                                                 onClick={() => setIsUserMenuOpen(false)}
                                                 className="w-full text-left px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-primary flex items-center gap-2 transition-colors"
                                             >
                                                 <span className="material-symbols-outlined text-lg">dashboard</span>
-                                                Admin Dashboard
+                                                {dashboardLabel}
                                             </Link>
                                         )}
                                         
@@ -128,7 +133,7 @@ export default function Navbar() {
                                 )}
                             </>
                         ) : (
-                            <Link to="/admin" className="p-2 text-ocean-deep dark:text-white flex items-center hover:text-primary transition-colors" title="Sign In">
+                            <Link to="/admin/login" className="p-2 text-ocean-deep dark:text-white flex items-center hover:text-primary transition-colors" title="Sign In">
                                 <span className="material-symbols-outlined">account_circle</span>
                             </Link>
                         )}
