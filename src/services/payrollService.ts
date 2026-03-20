@@ -272,5 +272,15 @@ export const payrollService = {
         }
 
         await batch.commit()
+    },
+
+    async getPayStubsByEmployeeId(employeeId: string): Promise<PayStub[]> {
+        const q = query(
+            collection(db, PAY_STUBS_COLLECTION),
+            where('employeeId', '==', employeeId),
+            orderBy('createdAt', 'desc')
+        )
+        const snap = await getDocs(q)
+        return snap.docs.map(d => payStubFromFirestore(d.id, d.data()))
     }
 }

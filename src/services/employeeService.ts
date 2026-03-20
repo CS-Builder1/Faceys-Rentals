@@ -26,6 +26,7 @@ function employeeFromFirestore(id: string, data: DocumentData): Employee {
     return {
         id,
         fullName: data.fullName ?? '',
+        email: data.email ?? '',
         role: data.role ?? '',
         phone: data.phone ?? '',
         hourlyRate: data.hourlyRate ?? 0,
@@ -135,6 +136,7 @@ export const employeeService = {
         const employeeData: Employee = {
             id: uid, // Use the same UID!
             fullName: data.fullName,
+            email: data.email,
             role: data.role,
             phone: data.phone,
             hourlyRate: data.hourlyRate,

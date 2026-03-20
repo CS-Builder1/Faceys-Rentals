@@ -99,6 +99,7 @@ export interface User {
     email: string;
     phone: string;
     status: 'active' | 'inactive';
+    hourlyRate?: number;
     createdAt: Date;
 }
 
@@ -236,6 +237,7 @@ export interface AuditLog {
 export interface Employee {
     id: string;
     fullName: string;
+    email: string;
     role: string;
     phone: string;
     hourlyRate: number;

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { employeeService } from '../../services/employeeService'
 import { payrollService } from '../../services/payrollService'
-import { type Employee, type WorkLogEntry, UserRole, type PayPeriod, type PayStub } from '../../types'
+import { type Employee, type WorkLogEntry, UserRole, type PayPeriod, type PayStub, type User as UserProfile } from '../../types'
 import { format } from 'date-fns'
 import { useAuth } from '../../contexts/AuthContext'
-import { Check, X, Users, Clock, Loader2, Calendar, FileText, Download, Play } from 'lucide-react'
+import { Check, X, Users, Clock, Loader2, Calendar, FileText, Download, Play, User as UserIcon } from 'lucide-react'
+import UserProfileModal from '../../components/UserProfileModal'
+import PayStubsModal from '../../components/PayStubsModal'
 
 export default function PayrollPage() {
     const { userProfile } = useAuth()
@@ -24,6 +26,10 @@ export default function PayrollPage() {
         email: '', password: '', fullName: '', phone: '', role: UserRole.Staff, hourlyRate: 15
     })
 
+    // Profile Modal
+    const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+
     // Payroll Run State
     const [isRunModalOpen, setIsRunModalOpen] = useState(false)
     const [runForm, setRunForm] = useState({ startDate: '', endDate: '' })
@@ -32,6 +38,11 @@ export default function PayrollPage() {
     const [runningPayroll, setRunningPayroll] = useState(false)
     const [editingStubId, setEditingStubId] = useState<string | null>(null)
     const [stubEdits, setStubEdits] = useState({ deductions: 0, bonuses: 0 })
+
+    // Staff Paystubs Modal
+    const [isStubsModalOpen, setIsStubsModalOpen] = useState(false)
+    const [stubsEmployeeId, setStubsEmployeeId] = useState<string | null>(null)
+    const [stubsEmployeeName, setStubsEmployeeName] = useState('')
 
     useEffect(() => {
         loadData()
@@ -491,6 +502,39 @@ export default function PayrollPage() {
                                     <p className="flex justify-between"><span className="text-gray-500">Phone:</span> <span className="text-gray-900">{emp.phone || 'Not provided'}</span></p>
                                     <p className="flex justify-between"><span className="text-gray-500">Hourly Rate:</span> <span className="text-gray-900">${emp.hourlyRate.toFixed(2)}/hr</span></p>
                                 </div>
+
+                                <div className="flex gap-3 mt-4">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedUser({
+                                                id: emp.id,
+                                                name: emp.fullName,
+                                                email: emp.email || '',
+                                                phone: emp.phone || '',
+                                                role: emp.role as UserRole || UserRole.Staff,
+                                                status: 'active',
+                                                createdAt: new Date(),
+                                                hourlyRate: emp.hourlyRate // Pass the hourly rate
+                                            })
+                                            setIsProfileModalOpen(true)
+                                        }}
+                                        className="flex-1 flex items-center justify-center gap-2 p-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors"
+                                    >
+                                        <UserIcon className="w-4 h-4" />
+                                        Profile
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            setStubsEmployeeId(emp.id);
+                                            setStubsEmployeeName(emp.fullName);
+                                            setIsStubsModalOpen(true);
+                                        }}
+                                        className="flex-1 flex items-center justify-center gap-2 p-2 text-sm font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-lg transition-colors"
+                                    >
+                                        <FileText className="w-4 h-4" />
+                                        Paystubs
+                                    </button>
+                                </div>
                             </div>
                         ))}
                         {employees.length === 0 && (
@@ -585,6 +629,7 @@ export default function PayrollPage() {
                                 <input
                                     required
                                     type="email"
+                                    autoComplete="off"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                     className="w-full px-4 py-2 rounded-xl border-gray-300 focus:ring-primary-500 focus:border-primary-500"
@@ -596,11 +641,12 @@ export default function PayrollPage() {
                                 <input
                                     required
                                     type="password"
+                                    autoComplete="new-password"
                                     minLength={6}
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-lg border-yellow-200 focus:ring-yellow-500 focus:border-yellow-500 bg-white"
-                                    placeholder="Min. 6 characters"
+                                    className="w-full px-4 py-2 rounded-xl border-yellow-300 focus:ring-yellow-500 focus:border-yellow-500"
+                                    placeholder="••••••••"
                                 />
                                 <p className="text-xs text-yellow-700 mt-2">Staff will use this password to log in to the timeclock.</p>
                             </div>
@@ -666,6 +712,32 @@ export default function PayrollPage() {
                         </form>
                     </div>
                 </div>
+            )}
+            {/* Modals */}
+            {selectedUser && (
+                <UserProfileModal 
+                    isOpen={isProfileModalOpen}
+                    onClose={() => {
+                        setIsProfileModalOpen(false)
+                        setSelectedUser(null)
+                    }}
+                    onUpdate={() => {
+                        loadData()
+                        setIsProfileModalOpen(false)
+                        setSelectedUser(null)
+                    }}
+                    user={selectedUser}
+                    allowRoleEdit={true}
+                />
+            )}
+
+            {stubsEmployeeId && (
+                <PayStubsModal
+                    isOpen={isStubsModalOpen}
+                    onClose={() => setIsStubsModalOpen(false)}
+                    employeeId={stubsEmployeeId}
+                    employeeName={stubsEmployeeName}
+                />
             )}
         </div>
     )

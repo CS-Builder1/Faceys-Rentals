@@ -38,6 +38,7 @@ export default function TimeclockPage() {
                     await employeeService.createEmployeeWithId(uid, {
                         fullName: userProfile.name,
                         role: userProfile.role,
+                        email: userProfile.email || '',
                         phone: userProfile.phone || '',
                         hourlyRate: 0,
                         isActive: true
