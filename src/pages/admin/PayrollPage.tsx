@@ -4,9 +4,11 @@ import { payrollService } from '../../services/payrollService'
 import { type Employee, type WorkLogEntry, UserRole, type PayPeriod, type PayStub, type User as UserProfile } from '../../types'
 import { format } from 'date-fns'
 import { useAuth } from '../../contexts/AuthContext'
-import { Check, X, Users, Clock, Loader2, Calendar, FileText, Download, Play, User as UserIcon } from 'lucide-react'
+import { Check, X, Users, Clock, Loader2, Calendar, FileText, Download, Play, User as UserIcon, Trash2 } from 'lucide-react'
 import UserProfileModal from '../../components/UserProfileModal'
 import PayStubsModal from '../../components/PayStubsModal'
+import { doc, deleteDoc } from 'firebase/firestore'
+import { db } from '../../services/firebase'
 
 export default function PayrollPage() {
     const { userProfile } = useAuth()
@@ -119,6 +121,21 @@ export default function PayrollPage() {
 
     const getEmployeeName = (id: string) => {
         return employees.find(e => e.id === id)?.fullName || 'Unknown Employee'
+    }
+
+    const isAdminOrOwner = userProfile?.role === UserRole.Admin || userProfile?.role === UserRole.Owner
+
+    const handleDeleteEmployee = async (emp: Employee) => {
+        if (!window.confirm(`Are you sure you want to permanently delete ${emp.fullName}'s account? This cannot be undone.`)) return
+        try {
+            await deleteDoc(doc(db, 'users', emp.id)).catch(() => {})
+            await deleteDoc(doc(db, 'employees', emp.id)).catch(() => {})
+            await deleteDoc(doc(db, 'customers', emp.id)).catch(() => {})
+            await loadData()
+        } catch (err: any) {
+            console.error(err)
+            alert('Failed to delete user: ' + err.message)
+        }
     }
 
     // ---- Payroll Runs & Stubs ----
@@ -534,6 +551,15 @@ export default function PayrollPage() {
                                         <FileText className="w-4 h-4" />
                                         Paystubs
                                     </button>
+                                    {isAdminOrOwner && (
+                                        <button
+                                            onClick={() => handleDeleteEmployee(emp)}
+                                            className="flex items-center justify-center gap-1 p-2 text-sm font-medium text-red-500 hover:bg-red-50 border border-red-200 rounded-lg transition-colors"
+                                            title="Delete user"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}

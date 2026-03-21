@@ -110,6 +110,15 @@ export interface Client {
     email: string;
     phone: string;
     billingAddress: string;
+    billingCity?: string;
+    billingState?: string;
+    billingZip?: string;
+    preferredContact?: 'email' | 'phone' | 'text';
+    referralSource?: string;
+    specialNotes?: string;
+    internalNotes?: string;
+    specialDiscount?: number;
+    status?: 'active' | 'inactive' | 'lead';
     notes: string;
     lifetimeValue: number; // auto-calculated
     createdAt: Date;
@@ -164,6 +173,7 @@ export interface EventItem {
 export interface Quote {
     id: string;
     eventId: string;
+    clientId?: string;
     total: number;
     tax: number;
     discount: number;

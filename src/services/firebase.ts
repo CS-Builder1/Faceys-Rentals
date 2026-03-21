@@ -7,15 +7,14 @@ import { Timestamp } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAZeSB045KZk6RhQawGmGYesy2EodtgGvg",
-    authDomain: "faceys-rentals-catering-prod.firebaseapp.com",
-    projectId: "faceys-rentals-catering-prod",
-    storageBucket: "faceys-rentals-catering-prod.firebasestorage.app",
-    messagingSenderId: "660273786597",
-    appId: "1:660273786597:web:58519c78b3223716a86e0c",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-console.log("Firebase Config Initialization:", firebaseConfig)
 
 const app = initializeApp(firebaseConfig)
 

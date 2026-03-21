@@ -4,6 +4,8 @@ import { doc, setDoc } from 'firebase/firestore'
 import { auth, db } from '../../services/firebase'
 import { inventoryService } from '../../services/inventoryService'
 import { ItemCategory, PricingModel, UserRole } from '../../types'
+import { useAuth } from '../../contexts/AuthContext'
+import { ShieldCheck, Loader2 } from 'lucide-react'
 
 const mockProducts = [
     {
@@ -33,6 +35,7 @@ const mockProducts = [
 ]
 
 export default function AdminSetup() {
+    const { userProfile, loading: authLoading } = useAuth()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [status, setStatus] = useState([{ msg: 'Ready to setup admin and seed data.', type: 'info' }])
@@ -42,14 +45,37 @@ export default function AdminSetup() {
         setStatus(prev => [...prev, { msg, type }])
     }
 
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+            </div>
+        )
+    }
+
+    if (!userProfile || (userProfile.role !== UserRole.Owner && userProfile.role !== UserRole.Admin)) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-background-dark">
+                <div className="max-w-md w-full bg-white dark:bg-white/5 p-8 rounded-[2.5rem] shadow-xl border border-red-100 dark:border-white/10 text-center space-y-4">
+                    <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <ShieldCheck className="w-10 h-10" />
+                    </div>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">Access Denied</h1>
+                    <p className="text-slate-500 font-medium">The setup process is locked. Only existing Owners or Admins can access the seeding utilities.</p>
+                </div>
+            </div>
+        )
+    }
+
     const handleCreateAdmin = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
+        addLog('WARNING: Due to updated security rules, creating an admin from the client requires Firebase Console intervention to bypass rules.', 'error')
         try {
             addLog('Creating auth user...', 'info')
             const cred = await createUserWithEmailAndPassword(auth, email, password)
 
-            addLog('Setting up user document...', 'info')
+            addLog('Setting up user document (This may fail due to security rules)...', 'info')
             await setDoc(doc(db, 'users', cred.user.uid), {
                 email: cred.user.email,
                 name: 'Patrick Facey',
@@ -104,10 +130,6 @@ export default function AdminSetup() {
                 addLog(`Added ${p.name}`, 'success')
             }
             addLog('Inventory seeding complete!', 'success')
-
-            // Note: quotes/events are harder to mock perfectly without real Event IDs.
-            // Leaving them basic for now or skipping.
-
         } catch (err: any) {
             addLog(`Seeding Error: ${err.message}`, 'error')
         } finally {
@@ -118,39 +140,46 @@ export default function AdminSetup() {
     return (
         <main className="min-h-screen py-24 bg-slate-50 dark:bg-background-dark p-6">
             <div className="max-w-xl mx-auto space-y-8">
-                <div className="bg-white dark:bg-white/5 rounded-3xl p-8 shadow-xl border border-slate-200 dark:border-white/10 space-y-6">
+                <div className="bg-white dark:bg-white/5 rounded-[2.5rem] p-8 shadow-xl border border-slate-200 dark:border-white/10 space-y-6">
                     <h1 className="text-2xl font-black text-ocean-deep dark:text-white">Admin Setup & Seeding</h1>
+
+                    <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl text-sm font-bold flex items-start gap-3">
+                        <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
+                        <p>
+                            Note: Creating admins via this page is likely blocked by Firestore security rules. Use this page primarily for seeding inventory.
+                        </p>
+                    </div>
 
                     <form onSubmit={handleCreateAdmin} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-500 uppercase tracking-wider">Admin Email</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-400">Admin Email</label>
                             <input
                                 type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-5 py-4 bg-slate-50 border rounded-xl"
+                                className="w-full px-5 py-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-500 uppercase tracking-wider">Password</label>
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-400">Password</label>
                             <input
                                 type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-5 py-4 bg-slate-50 border rounded-xl"
+                                className="w-full px-5 py-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             />
                         </div>
-                        <button type="submit" disabled={isLoading} className="w-full py-4 bg-ocean-deep text-white rounded-xl font-bold">
+                        <button type="submit" disabled={isLoading} className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all">
                             1. Create Admin User
                         </button>
                     </form>
 
-                    <div className="pt-6 border-t">
-                        <button onClick={handleSeedData} disabled={isLoading} className="w-full py-4 bg-primary text-white rounded-xl font-bold">
+                    <div className="pt-6 border-t border-slate-100">
+                        <button onClick={handleSeedData} disabled={isLoading} className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold transition-all">
                             2. Seed Database
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-black text-green-400 p-6 rounded-2xl font-mono text-sm max-h-64 overflow-y-auto space-y-2">
+                <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] font-mono text-sm max-h-64 overflow-y-auto space-y-2">
                     {status.map((s, i) => (
-                        <div key={i} className={s.type === 'error' ? 'text-red-400' : s.type === 'success' ? 'text-emerald-400' : ''}>
+                        <div key={i} className={s.type === 'error' ? 'text-red-400' : s.type === 'success' ? 'text-emerald-400' : 'text-slate-300'}>
                             &gt; {s.msg}
                         </div>
                     ))}
@@ -159,3 +188,4 @@ export default function AdminSetup() {
         </main>
     )
 }
+

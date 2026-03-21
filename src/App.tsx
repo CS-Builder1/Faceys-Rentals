@@ -20,6 +20,7 @@ import AdminLayout from './components/layout/AdminLayout'
 import TimeclockPage from './pages/staff/TimeclockPage'
 import PayrollPage from './pages/admin/PayrollPage'
 import ContentManagerPage from './pages/admin/ContentManagerPage'
+import CustomerPortalPage from './pages/customer/CustomerPortalPage'
 
 function App() {
     return (
@@ -33,6 +34,11 @@ function App() {
                         <Route path="/catalog" element={<CatalogPage />} />
                         <Route path="/catering" element={<CateringPage />} />
                         <Route path="/request-quote" element={<RequestQuotePage />} />
+                        
+                        {/* Protected Customer Routes */}
+                        <Route element={<AdminRoute allowedRoles={[UserRole.Client]} />}>
+                            <Route path="/my-account" element={<CustomerPortalPage />} />
+                        </Route>
                     </Route>
 
                     {/* Admin Setup / Login - Unprotected for now */}
@@ -40,42 +46,42 @@ function App() {
                     <Route path="/admin/login" element={<LoginPage />} />
 
                     {/* Protected Admin Routes */}
-                    <Route element={<AdminRoute allowedRoles={[UserRole.Admin, UserRole.Marketing, UserRole.Accountant, UserRole.Staff]} />}>
+                    <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin, UserRole.Marketing, UserRole.Accountant, UserRole.Staff]} />}>
                         <Route element={<AdminLayout />}>
                             {/* Dashboard - accessible to Admin, Marketing, Accountant */}
-                            <Route element={<AdminRoute allowedRoles={[UserRole.Admin, UserRole.Marketing, UserRole.Accountant]} />}>
+                            <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin, UserRole.Marketing, UserRole.Accountant]} />}>
                                 <Route path="/admin" element={<DashboardPage />} />
                             </Route>
 
                             {/* Quotes & Invoices - Admin, Accountant */}
-                            <Route element={<AdminRoute allowedRoles={[UserRole.Admin, UserRole.Accountant]} />}>
+                            <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin, UserRole.Accountant]} />}>
                                 <Route path="/admin/quotes" element={<QuotesAdminPage />} />
                                 <Route path="/admin/invoices" element={<InvoicesPage />} />
                             </Route>
 
                             {/* Inventory - Admin, Marketing */}
-                            <Route element={<AdminRoute allowedRoles={[UserRole.Admin, UserRole.Marketing]} />}>
+                            <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin, UserRole.Marketing]} />}>
                                 <Route path="/admin/inventory" element={<InventoryAdminPage />} />
                             </Route>
 
                             {/* Calendar & Customers - Admin only (for now) */}
-                            <Route element={<AdminRoute allowedRoles={[UserRole.Admin]} />}>
+                            <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin]} />}>
                                 <Route path="/admin/calendar" element={<CalendarPage />} />
                                 <Route path="/admin/customers" element={<CustomersPage />} />
                             </Route>
 
                             {/* Staff */}
-                            <Route element={<AdminRoute allowedRoles={[UserRole.Admin, UserRole.Marketing, UserRole.Accountant, UserRole.Staff]} />}>
+                            <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin, UserRole.Marketing, UserRole.Accountant, UserRole.Staff]} />}>
                                 <Route path="/staff/timeclock" element={<TimeclockPage />} />
                             </Route>
 
                             {/* Payroll - Admin, Accountant */}
-                            <Route element={<AdminRoute allowedRoles={[UserRole.Admin, UserRole.Accountant]} />}>
+                            <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin, UserRole.Accountant]} />}>
                                 <Route path="/admin/payroll" element={<PayrollPage />} />
                             </Route>
 
                             {/* Content Manager - Admin, Marketing */}
-                            <Route element={<AdminRoute allowedRoles={[UserRole.Admin, UserRole.Marketing]} />}>
+                            <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin, UserRole.Marketing]} />}>
                                 <Route path="/admin/content" element={<ContentManagerPage />} />
                             </Route>
                         </Route>

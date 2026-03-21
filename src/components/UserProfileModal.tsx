@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom'
 import { 
   X, 
@@ -21,7 +22,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { UserRole, type User as UserProfile, type Event, type Quote } from '../types';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -114,25 +115,45 @@ function UserProfileModal({ isOpen, onClose, user, onUpdate, allowRoleEdit = fal
 
       await updateDoc(userRef, updates);
       
-      // If client, also update customers collection
-      if (user.role === UserRole.Client) {
-        const customerRef = doc(db, 'customers', user.id);
-        await updateDoc(customerRef, {
-          contactName: formData.name,
-          phone: formData.phone,
-          updatedAt: new Date().toISOString(),
-        });
-      }
+      const finalRole = (allowRoleEdit ? formData.role : user.role) as UserRole;
+      const staffRoles = [UserRole.Staff, UserRole.Admin, UserRole.Owner, UserRole.Marketing, UserRole.Accountant];
+      const isStaffRole = staffRoles.includes(finalRole);
+      const isClientRole = finalRole === UserRole.Client;
 
-      // If staff-like role, also update employees collection
-      if ([UserRole.Staff, UserRole.Admin, UserRole.Owner].includes(user.role)) {
+      if (isClientRole) {
+        // Upsert customer record
+        const customerRef = doc(db, 'customers', user.id);
+        const createdAt = user.createdAt
+          ? ((user.createdAt as any).toDate ? (user.createdAt as any).toDate().toISOString() : new Date(user.createdAt).toISOString())
+          : new Date().toISOString();
+        await setDoc(customerRef, {
+          contactName: formData.name,
+          email: user.email,
+          phone: formData.phone || '',
+          status: 'active',
+          updatedAt: new Date().toISOString(),
+          createdAt: createdAt,
+        }, { merge: true });
+
+        // Always purge stale employee record when role is Client
+        if (allowRoleEdit) {
+          try { await deleteDoc(doc(db, 'employees', user.id)); } catch (_) {}
+        }
+      } else if (isStaffRole) {
+        // Upsert employee record
         const employeeRef = doc(db, 'employees', user.id);
-        await updateDoc(employeeRef, {
+        await setDoc(employeeRef, {
           fullName: formData.name,
-          phone: formData.phone,
-          role: formData.role,
-          hourlyRate: Number(formData.hourlyRate),
-        }).catch(err => console.warn("Optional employee doc update failed:", err));
+          email: user.email,
+          phone: formData.phone || '',
+          role: finalRole,
+          hourlyRate: Number(formData.hourlyRate || 0),
+        }, { merge: true });
+
+        // Always purge stale customer record when role is a staff role
+        if (allowRoleEdit) {
+          try { await deleteDoc(doc(db, 'customers', user.id)); } catch (_) {}
+        }
       }
 
       setSuccessMessage('Profile updated successfully!');
@@ -197,7 +218,7 @@ function UserProfileModal({ isOpen, onClose, user, onUpdate, allowRoleEdit = fal
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-white/10 animate-in fade-in zoom-in duration-300">
         {/* Header */}
@@ -594,7 +615,8 @@ function UserProfileModal({ isOpen, onClose, user, onUpdate, allowRoleEdit = fal
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

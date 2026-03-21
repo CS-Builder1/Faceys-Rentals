@@ -24,6 +24,7 @@ function fromFirestore(id: string, data: DocumentData): Quote {
     return {
         id,
         eventId: data.eventId ?? '',
+        clientId: data.clientId,
         total: data.total ?? 0,
         tax: data.tax ?? 0,
         discount: data.discount ?? 0,
@@ -68,6 +69,12 @@ export const quoteService = {
 
     async getByEvent(eventId: string): Promise<Quote[]> {
         const q = query(ref, where('eventId', '==', eventId))
+        const snap = await getDocs(q)
+        return snap.docs.map((d) => fromFirestore(d.id, d.data()))
+    },
+
+    async getByClient(clientId: string): Promise<Quote[]> {
+        const q = query(ref, where('clientId', '==', clientId), orderBy('createdAt', 'desc'))
         const snap = await getDocs(q)
         return snap.docs.map((d) => fromFirestore(d.id, d.data()))
     },

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { QuoteStatus } from '../../types'
 import { useQuote } from '../../contexts/QuoteContext'
 import { quoteService } from '../../services/quoteService'
+import { clientService } from '../../services/clientService'
 
 const quickItems = [
     { label: 'Tents', icon: 'celebration' },
@@ -97,6 +98,31 @@ export default function RequestQuotePage() {
                 expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days expiration
                 createdAt: new Date()
             })
+
+            // Auto-create a client lead if they don't exist in CRM
+            try {
+                if (formData.email) {
+                    const existingClients = await clientService.getByEmail(formData.email)
+                    if (existingClients.length === 0) {
+                        await clientService.create({
+                            contactName: formData.name,
+                            businessName: '',
+                            email: formData.email,
+                            phone: formData.phone || '',
+                            billingAddress: '',
+                            billingCity: '',
+                            billingState: '',
+                            billingZip: '',
+                            status: 'lead',
+                            notes: `Automatically created as Lead from quote request on ${new Date().toLocaleDateString()}`,
+                            createdAt: new Date(),
+                            lifetimeValue: 0
+                        } as any)
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to sync CRM record:", err)
+            }
 
             setSubmitted(true)
             clearCart() // Empty cart after successful submission

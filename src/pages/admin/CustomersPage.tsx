@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react'
 import { clientService } from '../../services/clientService'
 import { Client } from '../../types'
 import { format } from 'date-fns'
-import { Trash2, Edit3, UserPlus, Search } from 'lucide-react'
+import { Trash2, Edit3, UserPlus, Search, Briefcase } from 'lucide-react'
 import AddClientModal from '../../components/AddClientModal'
+import CustomerDetailDrawer from '../../components/CustomerDetailDrawer'
 
 export default function CustomersPage() {
     const [clients, setClients] = useState<Client[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
+    const [selectedClient, setSelectedClient] = useState<Client | null>(null)
 
     const fetchClients = async () => {
         setIsLoading(true)
@@ -44,6 +46,18 @@ export default function CustomersPage() {
         c.email.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
+    const totalClients = clients.length
+    const totalLTV = clients.reduce((acc, curr) => acc + (curr.lifetimeValue || 0), 0)
+    const newThisMonth = clients.filter(c => c.createdAt && new Date(c.createdAt).getMonth() === new Date().getMonth() && new Date(c.createdAt).getFullYear() === new Date().getFullYear()).length
+
+    // Sync selected client if updated
+    useEffect(() => {
+        if (selectedClient) {
+            const updated = clients.find(c => c.id === selectedClient.id)
+            if (updated) setSelectedClient(updated)
+        }
+    }, [clients])
+
     return (
         <div className="p-8 md:p-12 space-y-12">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -69,6 +83,36 @@ export default function CustomersPage() {
                         <UserPlus className="w-4 h-4" />
                         Add New Client
                     </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between hover:border-primary/50 transition-colors">
+                    <div>
+                        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Total Clients</p>
+                        <h3 className="text-3xl font-black text-ocean-deep dark:text-white">{totalClients}</h3>
+                    </div>
+                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                        <UserPlus className="w-6 h-6" />
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between hover:border-emerald-500/50 transition-colors">
+                    <div>
+                        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Lifetime Revenue</p>
+                        <h3 className="text-3xl font-black text-emerald-600">${totalLTV.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600">
+                        <Briefcase className="w-6 h-6" />
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between hover:border-blue-500/50 transition-colors">
+                    <div>
+                        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">New This Month</p>
+                        <h3 className="text-3xl font-black text-ocean-deep dark:text-white">{newThisMonth}</h3>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
+                        <UserPlus className="w-6 h-6" />
+                    </div>
                 </div>
             </div>
 
@@ -103,7 +147,11 @@ export default function CustomersPage() {
                                 </tr>
                             ) : (
                                 filteredClients.map(client => (
-                                    <tr key={client.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+                                    <tr 
+                                        key={client.id} 
+                                        onClick={() => setSelectedClient(client)}
+                                        className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer"
+                                    >
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-4">
                                                 <div className="size-10 bg-ocean-deep/10 dark:bg-white/10 rounded-full flex items-center justify-center text-ocean-deep dark:text-white text-xs font-black">
@@ -130,18 +178,25 @@ export default function CustomersPage() {
                                             <span className="text-sm font-bold text-emerald-600">${(client.lifetimeValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         </td>
                                         <td className="px-8 py-6 text-xs text-slate-500 font-medium">
-                                            {format(new Date(client.createdAt), 'MMM dd, yyyy')}
+                                            {client.createdAt ? format(new Date(client.createdAt), 'MMM dd, yyyy') : 'N/A'}
                                         </td>
                                         <td className="px-8 py-6 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        setSelectedClient(client)
+                                                    }}
                                                     className="p-2.5 bg-slate-100 dark:bg-white/5 text-ocean-deep dark:text-white hover:bg-primary hover:text-white rounded-xl transition-all shadow-sm"
                                                     title="Edit Client"
                                                 >
                                                     <Edit3 className="w-4 h-4" />
                                                 </button>
                                                 <button 
-                                                    onClick={() => handleDelete(client.id, client.contactName)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleDelete(client.id, client.contactName)
+                                                    }}
                                                     className="p-2.5 bg-red-50 dark:bg-red-500/10 text-red-600 hover:bg-red-600 hover:text-white rounded-xl transition-all shadow-sm"
                                                     title="Delete Client"
                                                 >
@@ -161,6 +216,13 @@ export default function CustomersPage() {
                 isOpen={isAddModalOpen} 
                 onClose={() => setIsAddModalOpen(false)} 
                 onSuccess={fetchClients} 
+            />
+
+            <CustomerDetailDrawer
+                isOpen={!!selectedClient}
+                customer={selectedClient}
+                onClose={() => setSelectedClient(null)}
+                onUpdate={fetchClients}
             />
         </div>
     )

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useQuote } from '../../contexts/QuoteContext'
 import { useAuth } from '../../contexts/AuthContext'
 import CartDrawer from '../public/CartDrawer'
@@ -12,6 +12,7 @@ export default function Navbar() {
     const [isProfileOpen, setIsProfileOpen] = useState(false)
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
     const { logout } = useAuth()
+    const navigate = useNavigate()
 
     const userRole = userProfile?.role?.toUpperCase()
     const canAccessAdmin = userRole && ['ADMIN', 'MARKETING', 'ACCOUNTANT', 'OWNER'].includes(userRole)
@@ -95,16 +96,22 @@ export default function Navbar() {
                                             <p className="text-sm font-bold truncate text-ocean-deep dark:text-white">{userProfile?.name || 'User'}</p>
                                         </div>
                                         
-                                        <button 
-                                            onClick={() => {
-                                                setIsProfileOpen(true);
-                                                setIsUserMenuOpen(false);
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-primary flex items-center gap-2 transition-colors"
-                                        >
-                                            <span className="material-symbols-outlined text-lg">person</span>
-                                            My Profile
-                                        </button>
+                                        {userRole !== 'ADMIN' && userRole !== 'OWNER' && (
+                                            <button 
+                                                onClick={() => {
+                                                    if (userRole === 'CLIENT') {
+                                                        navigate('/my-account');
+                                                    } else {
+                                                        setIsProfileOpen(true);
+                                                    }
+                                                    setIsUserMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-primary flex items-center gap-2 transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-lg">person</span>
+                                                {userRole === 'CLIENT' ? 'My Account' : 'My Profile'}
+                                            </button>
+                                        )}
                                         
                                         {hasDashboardAccess && (
                                             <Link 

@@ -11,7 +11,7 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
     function isAdmin() {
-      return hasRole('ADMIN');
+      return hasRole('ADMIN') || hasRole('OWNER');
     }
     function isStaff() {
       return hasRole('STAFF');
@@ -22,7 +22,7 @@ service cloud.firestore {
     function isAccountant() {
       return hasRole('ACCOUNTANT');
     }
-    function isOwner(userId) {
+    function isSelf(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
@@ -42,16 +42,18 @@ service cloud.firestore {
     // USERS: Admin controls all; Users read self
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if true; // TEMPORARILY OPEN TO CREATE FIRST ADMIN
-      // Users can update display name/email but NOT their role
-      allow update: if isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role);
+      allow create: if (isSignedIn() && request.auth.uid == userId && request.resource.data.role == 'CLIENT') || isAdmin();
+      // Users can update their own data but NOT their role
+      allow update: if isAdmin() || (isSelf(userId) && request.resource.data.role == resource.data.role);
       allow delete: if isAdmin();
     }
 
-    // CLIENTS: Staff/Admin manage; Clients read self
-    match /clients/{clientId} {
+    // CUSTOMERS: Staff/Admin manage; Customers read/update self
+    match /customers/{customerId} {
       allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && resource.data.id == request.auth.uid);
-      allow write: if isStaff() || isAdmin();
+      allow create: if isStaff() || isAdmin() || (isSignedIn() && request.resource.data.id == request.auth.uid);
+      allow update: if isStaff() || isAdmin() || (isSignedIn() && resource.data.id == request.auth.uid && request.resource.data.id == resource.data.id);
+      allow delete: if isAdmin();
     }
 
     // CATALOG: Public Read, Admin Write

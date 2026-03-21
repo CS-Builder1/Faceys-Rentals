@@ -4,16 +4,16 @@ import { UserRole } from '../../types'
 
 const getSidebarItems = (role?: UserRole) => {
     const items = [
-        { icon: 'dashboard', label: 'Dashboard', path: '/admin', roles: [UserRole.Admin, UserRole.Accountant] },
-        { icon: 'calendar_today', label: 'Calendar', path: '/admin/calendar', roles: [UserRole.Admin] },
-        { icon: 'inventory_2', label: 'Inventory', path: '/admin/inventory', roles: [UserRole.Admin, UserRole.Marketing] },
-        { icon: 'description', label: 'Quotes', path: '/admin/quotes', roles: [UserRole.Admin, UserRole.Accountant] },
-        { icon: 'receipt_long', label: 'Invoices', path: '/admin/invoices', roles: [UserRole.Admin, UserRole.Accountant] },
-        { icon: 'group', label: 'Customers', path: '/admin/customers', roles: [UserRole.Admin] },
-        { icon: 'schedule', label: 'Timeclock', path: '/staff/timeclock', roles: [UserRole.Admin, UserRole.Staff, UserRole.Marketing, UserRole.Accountant] },
-        { icon: 'payments', label: 'Payroll', path: '/admin/payroll', roles: [UserRole.Admin, UserRole.Accountant] },
-        { icon: 'campaign', label: 'Site Content', path: '/admin/content', roles: [UserRole.Admin, UserRole.Marketing] },
-        { icon: 'settings', label: 'Settings', path: '/admin/settings', roles: [UserRole.Admin] },
+        { icon: 'dashboard', label: 'Dashboard', path: '/admin', roles: [UserRole.Owner, UserRole.Admin, UserRole.Accountant] },
+        { icon: 'calendar_today', label: 'Calendar', path: '/admin/calendar', roles: [UserRole.Owner, UserRole.Admin] },
+        { icon: 'inventory_2', label: 'Inventory', path: '/admin/inventory', roles: [UserRole.Owner, UserRole.Admin, UserRole.Marketing] },
+        { icon: 'description', label: 'Quotes', path: '/admin/quotes', roles: [UserRole.Owner, UserRole.Admin, UserRole.Accountant] },
+        { icon: 'receipt_long', label: 'Invoices', path: '/admin/invoices', roles: [UserRole.Owner, UserRole.Admin, UserRole.Accountant] },
+        { icon: 'group', label: 'Customers', path: '/admin/customers', roles: [UserRole.Owner, UserRole.Admin] },
+        { icon: 'schedule', label: 'Timeclock', path: '/staff/timeclock', roles: [UserRole.Owner, UserRole.Admin, UserRole.Staff, UserRole.Marketing, UserRole.Accountant] },
+        { icon: 'payments', label: 'Payroll', path: '/admin/payroll', roles: [UserRole.Owner, UserRole.Admin, UserRole.Accountant] },
+        { icon: 'campaign', label: 'Site Content', path: '/admin/content', roles: [UserRole.Owner, UserRole.Admin, UserRole.Marketing] },
+        { icon: 'settings', label: 'Settings', path: '/admin/settings', roles: [UserRole.Owner, UserRole.Admin] },
     ]
     return items.filter(item => role && item.roles.includes(role))
 }
