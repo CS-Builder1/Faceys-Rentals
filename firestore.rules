@@ -133,5 +133,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin() || isMarketing();
     }
+
+    // SETTINGS: Admin Manage Only
+    match /settings/{document=**} {
+      allow read, write: if isAdmin();
+    }
   }
 }

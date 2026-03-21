@@ -1,14 +1,10 @@
 import { useState, useEffect } from 'react'
 import { employeeService } from '../../services/employeeService'
 import { payrollService } from '../../services/payrollService'
-import { type Employee, type WorkLogEntry, UserRole, type PayPeriod, type PayStub, type User as UserProfile } from '../../types'
+import { type Employee, type WorkLogEntry, type PayPeriod, type PayStub } from '../../types'
 import { format } from 'date-fns'
 import { useAuth } from '../../contexts/AuthContext'
-import { Check, X, Users, Clock, Loader2, Calendar, FileText, Download, Play, User as UserIcon, Trash2 } from 'lucide-react'
-import UserProfileModal from '../../components/UserProfileModal'
-import PayStubsModal from '../../components/PayStubsModal'
-import { doc, deleteDoc } from 'firebase/firestore'
-import { db } from '../../services/firebase'
+import { Check, X, Clock, Loader2, Calendar, FileText, Download, Play } from 'lucide-react'
 
 export default function PayrollPage() {
     const { userProfile } = useAuth()
@@ -19,18 +15,7 @@ export default function PayrollPage() {
     // UI State
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [activeTab, setActiveTab] = useState<'approvals' | 'runs' | 'employees'>('approvals')
-    
-    // Employee Modal
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-    const [saving, setSaving] = useState(false)
-    const [formData, setFormData] = useState({
-        email: '', password: '', fullName: '', phone: '', role: UserRole.Staff, hourlyRate: 15
-    })
-
-    // Profile Modal
-    const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
-    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+    const [activeTab, setActiveTab] = useState<'approvals' | 'runs'>('approvals')
 
     // Payroll Run State
     const [isRunModalOpen, setIsRunModalOpen] = useState(false)
@@ -40,11 +25,6 @@ export default function PayrollPage() {
     const [runningPayroll, setRunningPayroll] = useState(false)
     const [editingStubId, setEditingStubId] = useState<string | null>(null)
     const [stubEdits, setStubEdits] = useState({ deductions: 0, bonuses: 0 })
-
-    // Staff Paystubs Modal
-    const [isStubsModalOpen, setIsStubsModalOpen] = useState(false)
-    const [stubsEmployeeId, setStubsEmployeeId] = useState<string | null>(null)
-    const [stubsEmployeeName, setStubsEmployeeName] = useState('')
 
     useEffect(() => {
         loadData()
@@ -100,42 +80,8 @@ export default function PayrollPage() {
         }
     }
 
-    // ---- Employee Management ----
-    const handleAddEmployee = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setSaving(true)
-        setError(null)
-        try {
-            await employeeService.createStaffAccount(formData)
-            setIsAddModalOpen(false)
-            setFormData({ email: '', password: '', fullName: '', phone: '', role: UserRole.Staff, hourlyRate: 15 })
-            loadData()
-        } catch (err: any) {
-            console.error(err)
-            setError(err.message || 'Failed to create employee.')
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-        } finally {
-            setSaving(false)
-        }
-    }
-
     const getEmployeeName = (id: string) => {
         return employees.find(e => e.id === id)?.fullName || 'Unknown Employee'
-    }
-
-    const isAdminOrOwner = userProfile?.role === UserRole.Admin || userProfile?.role === UserRole.Owner
-
-    const handleDeleteEmployee = async (emp: Employee) => {
-        if (!window.confirm(`Are you sure you want to permanently delete ${emp.fullName}'s account? This cannot be undone.`)) return
-        try {
-            await deleteDoc(doc(db, 'users', emp.id)).catch(() => {})
-            await deleteDoc(doc(db, 'employees', emp.id)).catch(() => {})
-            await deleteDoc(doc(db, 'customers', emp.id)).catch(() => {})
-            await loadData()
-        } catch (err: any) {
-            console.error(err)
-            alert('Failed to delete user: ' + err.message)
-        }
     }
 
     // ---- Payroll Runs & Stubs ----
@@ -281,13 +227,6 @@ export default function PayrollPage() {
                 >
                     <FileText className="w-5 h-5" />
                     Payroll Runs
-                </button>
-                <button
-                    onClick={() => setActiveTab('employees')}
-                    className={`pb-4 px-6 font-semibold flex items-center gap-2 whitespace-nowrap ${activeTab === 'employees' ? 'border-b-2 border-primary-600 text-primary-700' : 'text-gray-500'}`}
-                >
-                    <Users className="w-5 h-5" />
-                    Staff Roster
                 </button>
             </div>
 
@@ -482,98 +421,6 @@ export default function PayrollPage() {
                     </div>
                 </div>
             )}
-
-            {/* Tab: Employees */}
-            {activeTab === 'employees' && (
-                <div className="space-y-6">
-                    <div className="flex flex-col md:flex-row justify-between md:items-center bg-white p-6 rounded-xl shadow-sm border border-gray-200 gap-4">
-                        <div>
-                            <h2 className="text-xl font-bold text-gray-900">Manage Staff</h2>
-                            <p className="text-sm text-gray-500 mt-1">View and add employees to the system for time tracking.</p>
-                        </div>
-                        <button
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg font-semibold shadow-sm transition-colors whitespace-nowrap"
-                        >
-                            + Add Staff Member
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {employees.map(emp => (
-                            <div key={emp.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-gray-300 transition-colors">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                            {emp.fullName}
-                                            {emp.role === UserRole.Admin && <span className="bg-purple-100 text-purple-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Admin</span>}
-                                        </h3>
-                                        <p className="text-sm text-gray-500 capitalize flex items-center gap-1 mt-1">
-                                            {emp.role}
-                                        </p>
-                                    </div>
-                                    <span className={`w-3 h-3 rounded-full mt-1 ${emp.isActive ? 'bg-green-500' : 'bg-red-500'}`} title={emp.isActive ? "Active" : "Inactive"}></span>
-                                </div>
-
-                                <div className="bg-gray-50 p-3 rounded-lg space-y-2 mt-4 text-sm font-medium border border-gray-100">
-                                    <p className="flex justify-between"><span className="text-gray-500">Phone:</span> <span className="text-gray-900">{emp.phone || 'Not provided'}</span></p>
-                                    <p className="flex justify-between"><span className="text-gray-500">Hourly Rate:</span> <span className="text-gray-900">${emp.hourlyRate.toFixed(2)}/hr</span></p>
-                                </div>
-
-                                <div className="flex gap-3 mt-4">
-                                    <button
-                                        onClick={() => {
-                                            setSelectedUser({
-                                                id: emp.id,
-                                                name: emp.fullName,
-                                                email: emp.email || '',
-                                                phone: emp.phone || '',
-                                                role: emp.role as UserRole || UserRole.Staff,
-                                                status: 'active',
-                                                createdAt: new Date(),
-                                                hourlyRate: emp.hourlyRate // Pass the hourly rate
-                                            })
-                                            setIsProfileModalOpen(true)
-                                        }}
-                                        className="flex-1 flex items-center justify-center gap-2 p-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors"
-                                    >
-                                        <UserIcon className="w-4 h-4" />
-                                        Profile
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                            setStubsEmployeeId(emp.id);
-                                            setStubsEmployeeName(emp.fullName);
-                                            setIsStubsModalOpen(true);
-                                        }}
-                                        className="flex-1 flex items-center justify-center gap-2 p-2 text-sm font-medium text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-lg transition-colors"
-                                    >
-                                        <FileText className="w-4 h-4" />
-                                        Paystubs
-                                    </button>
-                                    {isAdminOrOwner && (
-                                        <button
-                                            onClick={() => handleDeleteEmployee(emp)}
-                                            className="flex items-center justify-center gap-1 p-2 text-sm font-medium text-red-500 hover:bg-red-50 border border-red-200 rounded-lg transition-colors"
-                                            title="Delete user"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                        {employees.length === 0 && (
-                            <div className="col-span-full bg-white p-12 rounded-xl border-2 border-dashed border-gray-200 text-center">
-                                <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <h3 className="text-lg font-bold text-gray-900">No Staff found</h3>
-                                <p className="text-gray-500">Add an employee to get started with time tracking and payroll.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
             {/* New Pay Run Modal */}
             {isRunModalOpen && (
                  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -626,144 +473,6 @@ export default function PayrollPage() {
                      </form>
                  </div>
              </div>
-            )}
-
-            {/* Add Employee Modal */}
-            {isAddModalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
-                        <div className="flex justify-between items-center p-6 border-b bg-gray-50">
-                            <h2 className="text-xl font-bold text-gray-900">Add New Staff Member</h2>
-                            <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-white p-1 rounded-full shadow-sm border">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleAddEmployee} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
-                                <input
-                                    required
-                                    type="text"
-                                    value={formData.fullName}
-                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-xl border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                                    placeholder="Jane Doe"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address <span className="font-normal text-gray-400 ml-1">(Used for portal login)</span></label>
-                                <input
-                                    required
-                                    type="email"
-                                    autoComplete="off"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-xl border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                                    placeholder="jane@example.com"
-                                />
-                            </div>
-                            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-                                <label className="block text-sm font-semibold text-yellow-800 mb-1">Temporary Password</label>
-                                <input
-                                    required
-                                    type="password"
-                                    autoComplete="new-password"
-                                    minLength={6}
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-xl border-yellow-300 focus:ring-yellow-500 focus:border-yellow-500"
-                                    placeholder="••••••••"
-                                />
-                                <p className="text-xs text-yellow-700 mt-2">Staff will use this password to log in to the timeclock.</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-4 py-2 rounded-xl border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                                        placeholder="(555) 123-4567"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Hourly Rate ($)</label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <span className="text-gray-500 sm:text-sm">$</span>
-                                        </div>
-                                        <input
-                                            required
-                                            type="number"
-                                            min="0"
-                                            step="0.50"
-                                            value={formData.hourlyRate}
-                                            onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) })}
-                                            className="w-full pl-7 pr-4 py-2 rounded-xl border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">System Role</label>
-                                <select
-                                    value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
-                                    className="w-full px-4 py-2 rounded-xl border-gray-300 focus:ring-primary-500 focus:border-primary-500 capitalize bg-white"
-                                >
-                                    {Object.values(UserRole).map((role) => (
-                                        <option key={role} value={role}>{role}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="pt-6 flex justify-end gap-3 sticky bottom-0 bg-white -mx-6 px-6 pb-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAddModalOpen(false)}
-                                    className="px-5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 font-semibold transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="px-5 py-2.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
-                                >
-                                    {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                                    {saving ? 'Creating...' : 'Create Staff Member'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-            {/* Modals */}
-            {selectedUser && (
-                <UserProfileModal 
-                    isOpen={isProfileModalOpen}
-                    onClose={() => {
-                        setIsProfileModalOpen(false)
-                        setSelectedUser(null)
-                    }}
-                    onUpdate={() => {
-                        loadData()
-                        setIsProfileModalOpen(false)
-                        setSelectedUser(null)
-                    }}
-                    user={selectedUser}
-                    allowRoleEdit={true}
-                />
-            )}
-
-            {stubsEmployeeId && (
-                <PayStubsModal
-                    isOpen={isStubsModalOpen}
-                    onClose={() => setIsStubsModalOpen(false)}
-                    employeeId={stubsEmployeeId}
-                    employeeName={stubsEmployeeName}
-                />
             )}
         </div>
     )

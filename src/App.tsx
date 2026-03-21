@@ -21,6 +21,7 @@ import TimeclockPage from './pages/staff/TimeclockPage'
 import PayrollPage from './pages/admin/PayrollPage'
 import ContentManagerPage from './pages/admin/ContentManagerPage'
 import CustomerPortalPage from './pages/customer/CustomerPortalPage'
+import SettingsPage from './pages/admin/SettingsPage'
 
 function App() {
     return (
@@ -64,10 +65,11 @@ function App() {
                                 <Route path="/admin/inventory" element={<InventoryAdminPage />} />
                             </Route>
 
-                            {/* Calendar & Customers - Admin only (for now) */}
+                            {/* Calendar, Customers, Settings - Admin only (for now) */}
                             <Route element={<AdminRoute allowedRoles={[UserRole.Owner, UserRole.Admin]} />}>
                                 <Route path="/admin/calendar" element={<CalendarPage />} />
                                 <Route path="/admin/customers" element={<CustomersPage />} />
+                                <Route path="/admin/settings" element={<SettingsPage />} />
                             </Route>
 
                             {/* Staff */}
