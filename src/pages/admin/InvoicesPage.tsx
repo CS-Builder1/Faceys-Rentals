@@ -5,6 +5,7 @@ import { quoteService } from '../../services/quoteService'
 import { Invoice, InvoiceStatus, DepositType, InvoiceLineItem, QuoteStatus, Quote } from '../../types'
 import { format, addDays } from 'date-fns'
 import { Plus, X, Loader2, FileText, CheckCircle, Trash2 } from 'lucide-react'
+import { calculateBalanceDue } from '../../utils/invoiceCalculations'
 
 export default function InvoicesPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -93,7 +94,7 @@ export default function InvoicesPage() {
     if (depositType === DepositType.Fixed) depositAmount = depositValue
     else if (depositType === DepositType.Percentage) depositAmount = total * (depositValue / 100)
     
-    const balanceDue = Math.max(total - depositAmount, 0)
+    const balanceDue = calculateBalanceDue(total, depositAmount)
 
     const handleCreateInvoice = async (e: React.FormEvent) => {
         e.preventDefault()

@@ -4,6 +4,7 @@ import { Quote, QuoteStatus } from '../../types'
 import { format } from 'date-fns'
 import { Eye, X, Mail, FileText, CheckCircle, Loader2, Phone } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { createFollowUpUpdate, getHoursSince, isQuoteFollowUpOverdue } from '../../utils/quoteWorkflow'
 
 type QueueFilter = 'all' | QuoteStatus | 'needs_followup'
 
@@ -61,23 +62,16 @@ export default function QuotesAdminPage() {
 
     const handleLogFollowUp = async (quote: Quote) => {
         try {
-            await quoteService.update(quote.id, {
-                followUpCount: (quote.followUpCount || 0) + 1,
-                lastContactedAt: new Date(),
-                status: quote.status === QuoteStatus.Sent ? QuoteStatus.Reviewed : quote.status,
-            })
+            await quoteService.update(quote.id, createFollowUpUpdate(quote))
             await fetchQuotes()
         } catch (error) {
             console.error('Failed to log follow-up interaction:', error)
         }
     }
 
-    const hoursSince = (quote: Quote) => {
-        const createdAt = new Date(quote.createdAt).getTime()
-        return Math.max(Math.floor((Date.now() - createdAt) / (1000 * 60 * 60)), 0)
-    }
+    const hoursSince = (quote: Quote) => getHoursSince(new Date(quote.createdAt))
 
-    const needsFollowUp = (quote: Quote) => quote.status === QuoteStatus.Sent && hoursSince(quote) >= 24
+    const needsFollowUp = (quote: Quote) => isQuoteFollowUpOverdue(quote)
 
     const summary = {
         total: quotes.length,

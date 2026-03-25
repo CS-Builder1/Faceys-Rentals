@@ -5,7 +5,7 @@ import { quoteService } from '../../services/quoteService'
 import { eventService } from '../../services/eventService'
 import { invoiceService } from '../../services/invoiceService'
 import { Quote, Event, Invoice, QuoteStatus, InvoiceStatus, EventStatus, UserRole } from '../../types'
-import { differenceInHours, format, isSameMonth, isThisMonth, subMonths } from 'date-fns'
+import { format, isSameMonth, isThisMonth, subMonths } from 'date-fns'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -21,6 +21,7 @@ import {
 } from 'chart.js'
 import { Bar, Line, Doughnut } from 'react-chartjs-2'
 import { logger } from '../../utils/logger'
+import { getHoursSince, isQuoteFollowUpOverdue } from '../../utils/quoteWorkflow'
 
 ChartJS.register(
     CategoryScale,
@@ -113,7 +114,7 @@ export default function DashboardPage() {
     }))
 
     const followUpRequests = quotes
-        .filter((q) => q.status === QuoteStatus.Sent && differenceInHours(new Date(), new Date(q.createdAt)) >= 24)
+        .filter((q) => isQuoteFollowUpOverdue(q))
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         .slice(0, 5)
 
@@ -301,7 +302,7 @@ export default function DashboardPage() {
                                             <p className="text-xs text-slate-500">{q.customerEmail || 'No email provided'}</p>
                                         </div>
                                         <span className="text-xs font-black uppercase tracking-wider text-red-600 bg-red-50 border border-red-200 px-3 py-1 rounded-full">
-                                            {differenceInHours(new Date(), new Date(q.createdAt))}h old
+                                            {getHoursSince(new Date(q.createdAt))}h old
                                         </span>
                                     </div>
                                 ))}
