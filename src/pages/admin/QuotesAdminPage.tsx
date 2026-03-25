@@ -3,14 +3,19 @@ import { quoteService } from '../../services/quoteService'
 import { Quote, QuoteStatus } from '../../types'
 import { format } from 'date-fns'
 import { Eye, X, Mail, FileText, CheckCircle, Loader2, Phone } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+
+type QueueFilter = 'all' | QuoteStatus | 'needs_followup'
 
 export default function QuotesAdminPage() {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const [quotes, setQuotes] = useState<Quote[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
+    const [statusFilter, setStatusFilter] = useState<QueueFilter>('all')
+    const [searchTerm, setSearchTerm] = useState('')
 
     const fetchQuotes = async () => {
         setIsLoading(true)
@@ -27,6 +32,13 @@ export default function QuotesAdminPage() {
     useEffect(() => {
         fetchQuotes()
     }, [])
+
+    useEffect(() => {
+        const queryFilter = searchParams.get('filter')
+        if (queryFilter === 'needs_followup' || queryFilter === QuoteStatus.Sent || queryFilter === QuoteStatus.Reviewed || queryFilter === QuoteStatus.Accepted) {
+            setStatusFilter(queryFilter as QueueFilter)
+        }
+    }, [searchParams])
 
     const handleMarkAsReviewed = async (quote: Quote) => {
         setIsProcessing(true)
@@ -47,12 +59,83 @@ export default function QuotesAdminPage() {
         setSelectedQuote(null)
     }
 
+    const hoursSince = (quote: Quote) => {
+        const createdAt = new Date(quote.createdAt).getTime()
+        return Math.max(Math.floor((Date.now() - createdAt) / (1000 * 60 * 60)), 0)
+    }
+
+    const needsFollowUp = (quote: Quote) => quote.status === QuoteStatus.Sent && hoursSince(quote) >= 24
+
+    const summary = {
+        total: quotes.length,
+        sent: quotes.filter(q => q.status === QuoteStatus.Sent).length,
+        followUp: quotes.filter(needsFollowUp).length,
+        reviewed: quotes.filter(q => q.status === QuoteStatus.Reviewed).length,
+        accepted: quotes.filter(q => q.status === QuoteStatus.Accepted).length,
+    }
+
+    const filteredQuotes = quotes
+        .filter((quote) => {
+            if (statusFilter === 'needs_followup') return needsFollowUp(quote)
+            if (statusFilter !== 'all') return quote.status === statusFilter
+            return true
+        })
+        .filter((quote) => {
+            const haystack = `${quote.customerName || ''} ${quote.customerEmail || ''} ${quote.customerPhone || ''} ${quote.venue || ''}`.toLowerCase()
+            return haystack.includes(searchTerm.toLowerCase())
+        })
+        .sort((a, b) => {
+            // Sent and follow-up items first, then oldest first to improve triage
+            const aPriority = needsFollowUp(a) ? 2 : a.status === QuoteStatus.Sent ? 1 : 0
+            const bPriority = needsFollowUp(b) ? 2 : b.status === QuoteStatus.Sent ? 1 : 0
+            if (aPriority !== bPriority) return bPriority - aPriority
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        })
+
     return (
         <div className="p-8 md:p-12 space-y-12">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                     <h2 className="text-3xl font-black text-ocean-deep dark:text-white">Manage <span className="text-primary tracking-widest uppercase text-2xl">Quotes</span></h2>
                     <p className="text-slate-500 font-medium">Review and respond to incoming quote requests.</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                <SummaryCard label="Total" value={summary.total} tone="slate" />
+                <SummaryCard label="Sent" value={summary.sent} tone="amber" />
+                <SummaryCard label="Needs Follow-up" value={summary.followUp} tone="red" />
+                <SummaryCard label="Reviewed" value={summary.reviewed} tone="blue" />
+                <SummaryCard label="Accepted" value={summary.accepted} tone="emerald" />
+            </div>
+
+            <div className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 p-4 md:p-5 flex flex-col lg:flex-row gap-3 lg:items-center">
+                <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by name, email, phone, venue..."
+                    className="w-full lg:max-w-md px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl outline-none focus:border-primary"
+                />
+                <div className="flex flex-wrap gap-2">
+                    {[
+                        { key: 'all', label: 'All' },
+                        { key: QuoteStatus.Sent, label: 'Sent' },
+                        { key: 'needs_followup', label: 'Needs Follow-up' },
+                        { key: QuoteStatus.Reviewed, label: 'Reviewed' },
+                        { key: QuoteStatus.Accepted, label: 'Accepted' },
+                    ].map((filter) => (
+                        <button
+                            key={filter.key}
+                            onClick={() => setStatusFilter(filter.key as QueueFilter)}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
+                                statusFilter === filter.key
+                                    ? 'bg-primary text-white'
+                                    : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/20'
+                            }`}
+                        >
+                            {filter.label}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -74,12 +157,12 @@ export default function QuotesAdminPage() {
                                 <tr>
                                     <td colSpan={6} className="px-8 py-6 text-center text-slate-500">Loading quotes...</td>
                                 </tr>
-                            ) : quotes.length === 0 ? (
+                            ) : filteredQuotes.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-8 py-6 text-center text-slate-500">No quotes found.</td>
+                                    <td colSpan={6} className="px-8 py-6 text-center text-slate-500">No quotes found for current filters.</td>
                                 </tr>
                             ) : (
-                                quotes.map(quote => (
+                                filteredQuotes.map(quote => (
                                     <tr key={quote.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                                         <td className="px-8 py-6">
                                             <div className="space-y-1">
@@ -100,23 +183,42 @@ export default function QuotesAdminPage() {
                                             <span className="text-sm font-bold text-ocean-deep dark:text-white">${quote.total?.toFixed(2) || '0.00'}</span>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                            <div className="flex flex-col items-start gap-1.5">
+                                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                                needsFollowUp(quote) ? 'bg-red-100 text-red-700' :
                                                 quote.status === QuoteStatus.Sent ? 'bg-amber-100 text-amber-700' :
                                                 quote.status === QuoteStatus.Reviewed ? 'bg-blue-100 text-blue-700' :
                                                 quote.status === QuoteStatus.Accepted ? 'bg-emerald-100 text-emerald-700' :
                                                 'bg-slate-100 text-slate-700'
                                             }`}>
-                                                {quote.status}
-                                            </span>
+                                                    {needsFollowUp(quote) ? 'follow-up overdue' : quote.status}
+                                                </span>
+                                                {quote.status === QuoteStatus.Sent && (
+                                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                                                        {hoursSince(quote)}h since received
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-8 py-6 text-right">
-                                            <button 
-                                                onClick={() => setSelectedQuote(quote)}
-                                                className="p-2 bg-slate-100 text-ocean-deep hover:bg-primary hover:text-white rounded-lg transition-colors inline-block"
-                                                title="Review Details"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </button>
+                                            <div className="inline-flex items-center gap-2">
+                                                {quote.status === QuoteStatus.Sent && (
+                                                    <button
+                                                        onClick={() => handleMarkAsReviewed(quote)}
+                                                        disabled={isProcessing}
+                                                        className="px-3 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
+                                                    >
+                                                        Review
+                                                    </button>
+                                                )}
+                                                <button 
+                                                    onClick={() => setSelectedQuote(quote)}
+                                                    className="p-2 bg-slate-100 text-ocean-deep hover:bg-primary hover:text-white rounded-lg transition-colors inline-block"
+                                                    title="Review Details"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -290,3 +392,19 @@ export default function QuotesAdminPage() {
     )
 }
 
+function SummaryCard({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'amber' | 'red' | 'blue' | 'emerald' }) {
+    const toneClasses = {
+        slate: 'bg-slate-50 text-slate-700 border-slate-200',
+        amber: 'bg-amber-50 text-amber-700 border-amber-200',
+        red: 'bg-red-50 text-red-700 border-red-200',
+        blue: 'bg-blue-50 text-blue-700 border-blue-200',
+        emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    }[tone]
+
+    return (
+        <div className={`rounded-2xl border p-4 ${toneClasses}`}>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{label}</p>
+            <p className="text-2xl font-black mt-1">{value}</p>
+        </div>
+    )
+}

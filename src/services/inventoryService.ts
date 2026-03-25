@@ -98,10 +98,13 @@ export const inventoryService = {
         for (const item of items) {
             try {
                 if (item.id) {
-                    const { id, createdAt, ...updateData } = item as any; // Don't override createdAt on update
-                    await this.update(id, updateData);
+                    const updateData = { ...(item as any) } // Don't override createdAt on update
+                    delete updateData.id
+                    delete updateData.createdAt
+                    await this.update(item.id, updateData);
                 } else {
-                    const { id, ...createData } = item as any;
+                    const createData = { ...(item as any) }
+                    delete createData.id
                     await this.create(createData as any);
                 }
             } catch (error) {

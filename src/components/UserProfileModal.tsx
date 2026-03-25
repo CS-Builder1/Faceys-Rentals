@@ -137,7 +137,11 @@ function UserProfileModal({ isOpen, onClose, user, onUpdate, allowRoleEdit = fal
 
         // Always purge stale employee record when role is Client
         if (allowRoleEdit) {
-          try { await deleteDoc(doc(db, 'employees', user.id)); } catch (_) {}
+          try {
+            await deleteDoc(doc(db, 'employees', user.id));
+          } catch (cleanupError) {
+            console.warn('Unable to delete stale employee record:', cleanupError);
+          }
         }
       } else if (isStaffRole) {
         // Upsert employee record
@@ -152,7 +156,11 @@ function UserProfileModal({ isOpen, onClose, user, onUpdate, allowRoleEdit = fal
 
         // Always purge stale customer record when role is a staff role
         if (allowRoleEdit) {
-          try { await deleteDoc(doc(db, 'customers', user.id)); } catch (_) {}
+          try {
+            await deleteDoc(doc(db, 'customers', user.id));
+          } catch (cleanupError) {
+            console.warn('Unable to delete stale customer record:', cleanupError);
+          }
         }
       }
 
@@ -618,6 +626,6 @@ function UserProfileModal({ isOpen, onClose, user, onUpdate, allowRoleEdit = fal
     </div>,
     document.body
   );
-};
+}
 
 export default UserProfileModal;

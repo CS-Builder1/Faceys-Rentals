@@ -56,7 +56,7 @@ export default function CustomersPage() {
             const updated = clients.find(c => c.id === selectedClient.id)
             if (updated) setSelectedClient(updated)
         }
-    }, [clients])
+    }, [clients, selectedClient])
 
     return (
         <div className="p-8 md:p-12 space-y-12">

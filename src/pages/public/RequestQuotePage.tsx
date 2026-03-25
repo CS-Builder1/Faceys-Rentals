@@ -67,6 +67,32 @@ export default function RequestQuotePage() {
         setSubmitError('')
 
         try {
+            let linkedClientId: string | undefined
+
+            // Resolve/Create client first so quote can be linked end-to-end
+            if (formData.email) {
+                const existingClients = await clientService.getByEmail(formData.email)
+                if (existingClients.length > 0) {
+                    linkedClientId = existingClients[0].id
+                } else {
+                    const newClientId = await clientService.create({
+                        contactName: formData.name,
+                        businessName: '',
+                        email: formData.email,
+                        phone: formData.phone || '',
+                        billingAddress: '',
+                        billingCity: '',
+                        billingState: '',
+                        billingZip: '',
+                        status: 'lead',
+                        notes: `Automatically created as Lead from quote request on ${new Date().toLocaleDateString()}`,
+                        createdAt: new Date(),
+                        lifetimeValue: 0
+                    } as any)
+                    linkedClientId = newClientId
+                }
+            }
+
             // Include quick items in the details if selected
             let finalDetails = formData.details
             if (selectedItems.length > 0) {
@@ -92,37 +118,13 @@ export default function RequestQuotePage() {
                 notes: finalDetails,
                 // Defaults for Quote interface
                 eventId: '',
+                clientId: linkedClientId,
                 tax: 0,
                 discount: 0,
                 depositRequired: 0,
                 expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days expiration
                 createdAt: new Date()
             })
-
-            // Auto-create a client lead if they don't exist in CRM
-            try {
-                if (formData.email) {
-                    const existingClients = await clientService.getByEmail(formData.email)
-                    if (existingClients.length === 0) {
-                        await clientService.create({
-                            contactName: formData.name,
-                            businessName: '',
-                            email: formData.email,
-                            phone: formData.phone || '',
-                            billingAddress: '',
-                            billingCity: '',
-                            billingState: '',
-                            billingZip: '',
-                            status: 'lead',
-                            notes: `Automatically created as Lead from quote request on ${new Date().toLocaleDateString()}`,
-                            createdAt: new Date(),
-                            lifetimeValue: 0
-                        } as any)
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to sync CRM record:", err)
-            }
 
             setSubmitted(true)
             clearCart() // Empty cart after successful submission

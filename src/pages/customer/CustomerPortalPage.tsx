@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Event, Quote, UserRole, Client, Invoice } from '../../types';
 import { eventService } from '../../services/eventService';
@@ -38,13 +38,7 @@ export default function CustomerPortalPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [msg, setMsg] = useState({ text: '', type: '' });
 
-    useEffect(() => {
-        if (userProfile && userProfile.role === UserRole.Client) {
-            fetchData();
-        }
-    }, [userProfile]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         if (!userProfile) return;
         setIsLoading(true);
         try {
@@ -97,7 +91,13 @@ export default function CustomerPortalPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [userProfile]);
+
+    useEffect(() => {
+        if (userProfile && userProfile.role === UserRole.Client) {
+            fetchData();
+        }
+    }, [userProfile, fetchData]);
 
     const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();

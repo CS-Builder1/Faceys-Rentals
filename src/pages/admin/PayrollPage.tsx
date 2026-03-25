@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { employeeService } from '../../services/employeeService'
 import { payrollService } from '../../services/payrollService'
 import { type Employee, type WorkLogEntry, type PayPeriod, type PayStub } from '../../types'
@@ -26,11 +26,7 @@ export default function PayrollPage() {
     const [editingStubId, setEditingStubId] = useState<string | null>(null)
     const [stubEdits, setStubEdits] = useState({ deductions: 0, bonuses: 0 })
 
-    useEffect(() => {
-        loadData()
-    }, [])
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true)
         setError(null)
         try {
@@ -54,7 +50,11 @@ export default function PayrollPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [activePeriod])
+
+    useEffect(() => {
+        loadData()
+    }, [loadData])
 
     // ---- Pending Approvals ----
     const handleApprove = async (logId: string) => {

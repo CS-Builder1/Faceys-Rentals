@@ -93,7 +93,7 @@ export default function InvoicesPage() {
     if (depositType === DepositType.Fixed) depositAmount = depositValue
     else if (depositType === DepositType.Percentage) depositAmount = total * (depositValue / 100)
     
-    const balanceDue = total
+    const balanceDue = Math.max(total - depositAmount, 0)
 
     const handleCreateInvoice = async (e: React.FormEvent) => {
         e.preventDefault()

@@ -44,8 +44,8 @@ export default function CalendarPage() {
 
                 // Map Events
                 events.forEach(e => {
-                    let start = new Date(e.eventDate)
-                    let end = new Date(e.eventDate)
+                    const start = new Date(e.eventDate)
+                    const end = new Date(e.eventDate)
                     
                     if (e.startTime) {
                         const [hours, minutes] = e.startTime.split(':')

@@ -5,7 +5,7 @@ import { quoteService } from '../../services/quoteService'
 import { eventService } from '../../services/eventService'
 import { invoiceService } from '../../services/invoiceService'
 import { Quote, Event, Invoice, QuoteStatus, InvoiceStatus, EventStatus, UserRole } from '../../types'
-import { format, isThisMonth, subMonths, isSameMonth } from 'date-fns'
+import { differenceInHours, format, isSameMonth, isThisMonth, subMonths } from 'date-fns'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -111,6 +111,11 @@ export default function DashboardPage() {
         initials: (req.customerName || 'O').substring(0, 2).toUpperCase()
     }))
 
+    const followUpRequests = quotes
+        .filter((q) => q.status === QuoteStatus.Sent && differenceInHours(new Date(), new Date(q.createdAt)) >= 24)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .slice(0, 5)
+
     const last6Months = Array.from({ length: 6 }).map((_, i) => subMonths(new Date(), 5 - i))
 
     const monthlyRevenueData = last6Months.map(month => {
@@ -201,6 +206,24 @@ export default function DashboardPage() {
                 ))}
             </div>
 
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-amber-700">Action Queue</p>
+                    <p className="text-sm text-amber-900 font-medium mt-1">
+                        {followUpRequests.length === 0
+                            ? 'No quote follow-ups are currently overdue.'
+                            : `${followUpRequests.length} quote follow-up${followUpRequests.length > 1 ? 's are' : ' is'} overdue (24h+).`}
+                    </p>
+                </div>
+                <Link
+                    to="/admin/quotes?filter=needs_followup"
+                    className="px-4 py-2.5 bg-amber-600 text-white rounded-xl text-sm font-bold hover:bg-amber-700 transition-colors inline-flex items-center gap-2 w-fit"
+                >
+                    Open Follow-up Queue
+                    <span className="material-symbols-outlined text-base">arrow_forward</span>
+                </Link>
+            </div>
+
             {/* Content Rows */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 {/* Main Content Area (col-span-2) */}
@@ -260,6 +283,30 @@ export default function DashboardPage() {
                             </table>
                         </div>
                     </div>
+
+                    {followUpRequests.length > 0 && (
+                        <div className="bg-white dark:bg-white/5 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden">
+                            <div className="p-6 border-b border-slate-100 dark:border-white/5 flex justify-between items-center">
+                                <h3 className="text-lg font-bold text-ocean-deep dark:text-white">Overdue Follow-ups</h3>
+                                <Link to="/admin/quotes?filter=needs_followup" className="text-primary text-xs font-bold uppercase tracking-wider">
+                                    View Queue
+                                </Link>
+                            </div>
+                            <div className="divide-y divide-slate-100 dark:divide-white/5">
+                                {followUpRequests.map((q) => (
+                                    <div key={q.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                                        <div>
+                                            <p className="text-sm font-bold text-ocean-deep dark:text-white">{q.customerName || 'Online Request'}</p>
+                                            <p className="text-xs text-slate-500">{q.customerEmail || 'No email provided'}</p>
+                                        </div>
+                                        <span className="text-xs font-black uppercase tracking-wider text-red-600 bg-red-50 border border-red-200 px-3 py-1 rounded-full">
+                                            {differenceInHours(new Date(), new Date(q.createdAt))}h old
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Quote Conversion Chart */}
                     <div className="bg-white dark:bg-white/5 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden p-8 space-y-6">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { employeeService } from '../../services/employeeService'
 import { WorkLogContext, type Employee, type WorkLogEntry } from '../../types'
@@ -20,13 +20,7 @@ export default function TimeclockPage() {
     const [selectedContext, setSelectedContext] = useState<WorkLogContext>(WorkLogContext.General)
     const [bookingId, setBookingId] = useState('')
 
-    useEffect(() => {
-        if (userProfile?.id) {
-            loadTimeclockData(userProfile.id)
-        }
-    }, [userProfile?.id])
-
-    const loadTimeclockData = async (uid: string) => {
+    const loadTimeclockData = useCallback(async (uid: string) => {
         try {
             setLoading(true)
             let emp = await employeeService.getEmployeeById(uid)
@@ -62,7 +56,13 @@ export default function TimeclockPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [userProfile])
+
+    useEffect(() => {
+        if (userProfile?.id) {
+            loadTimeclockData(userProfile.id)
+        }
+    }, [userProfile?.id, loadTimeclockData])
 
     const handleClockIn = async () => {
         if (!employee) return
@@ -97,7 +97,7 @@ export default function TimeclockPage() {
     const handleLogout = async () => {
         try {
             await auth.signOut()
-            navigate('/login')
+            navigate('/admin/login')
         } catch (error) {
             console.error('Error signing out', error)
         }
