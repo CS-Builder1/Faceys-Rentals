@@ -9,6 +9,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../services/firebase'
 import type { User } from '../types'
+import { logger } from '../utils/logger'
 
 interface AuthContextValue {
     firebaseUser: FirebaseUser | null
@@ -34,23 +35,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, async (fbUser) => {
-            console.log("[AuthContext] onAuthStateChanged fired with:", fbUser?.uid)
+            logger.debug("[AuthContext] onAuthStateChanged fired with:", fbUser?.uid)
             
             // If we have a user, start fetching profile but KEEP loading true
             if (fbUser) {
                 setFirebaseUser(fbUser)
                 try {
-                    console.log("[AuthContext] Fetching user profile from Firestore...")
+                    logger.debug("[AuthContext] Fetching user profile from Firestore...")
                     const snap = await getDoc(doc(db, 'users', fbUser.uid))
-                    console.log("[AuthContext] Profile fetched. Exists:", snap.exists())
+                    logger.debug("[AuthContext] Profile fetched. Exists:", snap.exists())
                     if (snap.exists()) {
                         setUserProfile({ id: snap.id, ...snap.data() } as User)
                     } else {
-                        console.warn("[AuthContext] User document missing for UID:", fbUser.uid)
+                        logger.warn("[AuthContext] User document missing for UID:", fbUser.uid)
                         setUserProfile(null)
                     }
                 } catch (err) {
-                    console.error("[AuthContext] Error fetching profile:", err)
+                    logger.error("[AuthContext] Error fetching profile:", err)
                     setUserProfile(null)
                 }
             } else {
@@ -59,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             
             // Finalize loading state once both auth and profile (if applicable) are handled
-            console.log("[AuthContext] Auth initialization complete, setting loading to false")
+            logger.debug("[AuthContext] Auth initialization complete, setting loading to false")
             setLoading(false)
         })
         return unsub

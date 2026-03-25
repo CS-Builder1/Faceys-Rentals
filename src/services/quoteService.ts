@@ -14,7 +14,7 @@ import {
     orderBy,
     type DocumentData,
 } from 'firebase/firestore'
-import { db, toDate, toTimestamp } from './firebase'
+import { db, toDate, toOptionalDate, toTimestamp } from './firebase'
 import type { Quote, QuoteStatus } from '../types'
 
 const COLLECTION = 'booking_requests'
@@ -44,7 +44,7 @@ function fromFirestore(id: string, data: DocumentData): Quote {
         notes: data.notes,
         items: data.items,
         followUpCount: data.followUpCount ?? 0,
-        lastContactedAt: data.lastContactedAt ? toDate(data.lastContactedAt) : undefined,
+        lastContactedAt: toOptionalDate(data.lastContactedAt),
     }
 }
 

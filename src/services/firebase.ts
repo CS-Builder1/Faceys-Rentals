@@ -39,6 +39,13 @@ export function toDate(value: Timestamp | Date | undefined | null): Date {
     return value
 }
 
+/** Convert a Firestore Timestamp or Date to an optional JS Date */
+export function toOptionalDate(value: Timestamp | Date | undefined | null): Date | undefined {
+    if (!value) return undefined
+    if (value instanceof Timestamp) return value.toDate()
+    return value
+}
+
 /** Convert a JS Date to a Firestore Timestamp */
 export function toTimestamp(date: Date): Timestamp {
     return Timestamp.fromDate(date)

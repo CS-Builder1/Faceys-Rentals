@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { UserRole } from '../../types'
+import { logger } from '../../utils/logger'
 
 interface AdminRouteProps {
     allowedRoles?: UserRole[]
@@ -8,7 +9,7 @@ interface AdminRouteProps {
 
 export default function AdminRoute({ allowedRoles = [UserRole.Admin] }: AdminRouteProps) {
     const { firebaseUser, userProfile, loading } = useAuth()
-    console.log("[AdminRoute] Render - loading:", loading, "firebaseUser:", firebaseUser?.uid, "userProfile:", userProfile?.role)
+    logger.debug("[AdminRoute] Render - loading:", loading, "firebaseUser:", firebaseUser?.uid, "userProfile:", userProfile?.role)
 
     if (loading) {
         return (

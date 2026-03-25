@@ -20,6 +20,7 @@ import {
     ArcElement,
 } from 'chart.js'
 import { Bar, Line, Doughnut } from 'react-chartjs-2'
+import { logger } from '../../utils/logger'
 
 ChartJS.register(
     CategoryScale,
@@ -43,7 +44,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            console.log("[DashboardPage] Fetching data...")
+            logger.debug("[DashboardPage] Fetching data...")
             setIsLoading(true)
             try {
                 const [fetchedQuotes, fetchedEvents, fetchedInvoices] = await Promise.all([
@@ -51,7 +52,7 @@ export default function DashboardPage() {
                     eventService.getAll(),
                     invoiceService.getAll()
                 ])
-                console.log("[DashboardPage] Data fetched successfully", { 
+                logger.debug("[DashboardPage] Data fetched successfully", { 
                     quotes: fetchedQuotes.length, 
                     events: fetchedEvents.length, 
                     invoices: fetchedInvoices.length 
@@ -60,7 +61,7 @@ export default function DashboardPage() {
                 setEvents(fetchedEvents || [])
                 setInvoices(fetchedInvoices || [])
             } catch (error) {
-                console.error("[DashboardPage] Critical fetch error:", error)
+                logger.error("[DashboardPage] Critical fetch error:", error)
             } finally {
                 setIsLoading(false)
             }
