@@ -192,6 +192,8 @@ export interface Quote {
     venue?: string;
     notes?: string;
     items?: any[];
+    followUpCount?: number;
+    lastContactedAt?: Date;
 }
 
 export interface Invoice {
@@ -339,4 +341,3 @@ export interface SiteContent {
         alt: string;
     }[];
 }
-

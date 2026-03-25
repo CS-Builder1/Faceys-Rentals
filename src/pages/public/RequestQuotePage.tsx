@@ -122,6 +122,7 @@ export default function RequestQuotePage() {
                 tax: 0,
                 discount: 0,
                 depositRequired: 0,
+                followUpCount: 0,
                 expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days expiration
                 createdAt: new Date()
             })

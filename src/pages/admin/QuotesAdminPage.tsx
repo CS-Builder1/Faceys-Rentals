@@ -59,6 +59,19 @@ export default function QuotesAdminPage() {
         setSelectedQuote(null)
     }
 
+    const handleLogFollowUp = async (quote: Quote) => {
+        try {
+            await quoteService.update(quote.id, {
+                followUpCount: (quote.followUpCount || 0) + 1,
+                lastContactedAt: new Date(),
+                status: quote.status === QuoteStatus.Sent ? QuoteStatus.Reviewed : quote.status,
+            })
+            await fetchQuotes()
+        } catch (error) {
+            console.error('Failed to log follow-up interaction:', error)
+        }
+    }
+
     const hoursSince = (quote: Quote) => {
         const createdAt = new Date(quote.createdAt).getTime()
         return Math.max(Math.floor((Date.now() - createdAt) / (1000 * 60 * 60)), 0)
@@ -198,6 +211,10 @@ export default function QuotesAdminPage() {
                                                         {hoursSince(quote)}h since received
                                                     </span>
                                                 )}
+                                                <span className="text-[10px] text-slate-500 font-medium">
+                                                    Follow-ups: {quote.followUpCount || 0}
+                                                    {quote.lastContactedAt ? ` • Last contact ${format(new Date(quote.lastContactedAt), 'MMM dd')}` : ''}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6 text-right">
@@ -339,6 +356,7 @@ export default function QuotesAdminPage() {
                             {selectedQuote.customerEmail ? (
                                 <a 
                                     href={`mailto:${selectedQuote.customerEmail}?subject=Regarding your quote request - Facey's Party Rentals`}
+                                    onClick={() => { void handleLogFollowUp(selectedQuote) }}
                                     className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center gap-2 mr-auto shadow-sm"
                                 >
                                     <Mail className="w-4 h-4" />
@@ -347,6 +365,7 @@ export default function QuotesAdminPage() {
                             ) : selectedQuote.customerPhone ? (
                                 <a 
                                     href={`tel:${selectedQuote.customerPhone}`}
+                                    onClick={() => { void handleLogFollowUp(selectedQuote) }}
                                     className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center gap-2 mr-auto shadow-sm"
                                 >
                                     <Phone className="w-4 h-4" />

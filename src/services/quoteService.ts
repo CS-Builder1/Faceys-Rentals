@@ -43,6 +43,8 @@ function fromFirestore(id: string, data: DocumentData): Quote {
         venue: data.venue,
         notes: data.notes,
         items: data.items,
+        followUpCount: data.followUpCount ?? 0,
+        lastContactedAt: data.lastContactedAt ? toDate(data.lastContactedAt) : undefined,
     }
 }
 
@@ -51,6 +53,7 @@ function toFirestoreData(quote: Partial<Quote>): DocumentData {
     delete data.id
     if (data.expirationDate instanceof Date) data.expirationDate = toTimestamp(data.expirationDate)
     if (data.createdAt instanceof Date) data.createdAt = toTimestamp(data.createdAt)
+    if (data.lastContactedAt instanceof Date) data.lastContactedAt = toTimestamp(data.lastContactedAt)
     return data
 }
 
