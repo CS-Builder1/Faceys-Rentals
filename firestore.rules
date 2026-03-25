@@ -14,7 +14,7 @@ service cloud.firestore {
       return hasRole('ADMIN') || hasRole('OWNER');
     }
     function isStaff() {
-      return hasRole('STAFF');
+      return hasRole('STAFF') || hasRole('MARKETING');
     }
     function isMarketing() {
       return hasRole('MARKETING');
@@ -32,7 +32,7 @@ service cloud.firestore {
     function isValidBooking() {
       let data = request.resource.data;
       return data.keys().hasAll(['clientId', 'status', 'eventDate', 'items', 'total'])
-        && data.status in ['DRAFT', 'PENDING_APPROVAL', 'CONFIRMED', 'COMPLETED', 'CANCELLED']
+        && data.status in ['inquiry', 'quoted', 'confirmed', 'completed', 'cancelled']
         && data.total is number
         && data.items is list;
     }
@@ -60,6 +60,13 @@ service cloud.firestore {
     match /catalog_items/{itemId} {
       allow read: if true;
       allow write: if isAdmin() || isMarketing();
+    }
+
+    // EMPLOYEES: Admin/Accountant/Staff access
+    match /employees/{employeeId} {
+      allow read: if isAdmin() || isAccountant() || isStaff() || isSelf(employeeId);
+      allow create, update: if isAdmin() || isAccountant();
+      allow delete: if isAdmin();
     }
 
     // BOOKINGS: The Core Logic
@@ -93,13 +100,13 @@ service cloud.firestore {
 
     // INVOICES: Admin/Staff Manage, Client Read Only
     match /invoices/{invoiceId} {
-      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && get(/databases/$(database)/documents/bookings/$(resource.data.bookingId)).data.clientId == request.auth.uid);
+      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && get(/databases/$(database)/documents/bookings/$(resource.data.eventId)).data.clientId == request.auth.uid);
       allow write: if isAdmin() || isAccountant();
     }
 
     // PAYMENTS: Webhooks create, Admin manage
     match /payments/{paymentId} {
-      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && get(/databases/$(database)/documents/invoices/$(resource.data.invoiceId)).data.bookingId == request.auth.uid);
+      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && get(/databases/$(database)/documents/bookings/$(get(/databases/$(database)/documents/invoices/$(resource.data.invoiceId)).data.eventId)).data.clientId == request.auth.uid);
       allow create: if true; // Webhooks or Client Portal
       allow update, delete: if isAdmin() || isAccountant();
     }
@@ -113,19 +120,23 @@ service cloud.firestore {
     }
 
     // STAFF LOGS: Time Tracking
-    match /work_logs/{logId} {
+    match /worklogs/{logId} {
       allow read: if isAdmin() || (isStaff() && resource.data.employeeId == request.auth.uid);
       allow create: if isAdmin() || (isStaff() && request.resource.data.employeeId == request.auth.uid);
-      // Locked if payroll generated
-      allow update: if (isAdmin() || (isStaff() && resource.data.employeeId == request.auth.uid))
-                    && resource.data.payrollId == null; 
-      allow delete: if isAdmin() && resource.data.payrollId == null;
+      allow update: if isAdmin() || (isStaff() && resource.data.employeeId == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
-    // SALARY SLIPS: Admin Generate, Staff Read Own
-    match /salary_slips/{slipId} {
+    // PAY STUBS: Admin/Accountant Generate, Staff Read Own
+    match /payStubs/{slipId} {
       allow read: if isAdmin() || (isStaff() && resource.data.employeeId == request.auth.uid);
-      allow write: if isAdmin(); // Only generated via Cloud Function (Admin Context)
+      allow write: if isAdmin() || isAccountant();
+    }
+
+    // PAY PERIODS: Admin/Accountant manage
+    match /payPeriods/{periodId} {
+      allow read: if isAdmin() || isAccountant();
+      allow write: if isAdmin() || isAccountant();
     }
 
     // SITE CONTENT: Read all, Admin/Marketing Write
