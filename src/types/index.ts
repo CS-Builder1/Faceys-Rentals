@@ -36,10 +36,11 @@ export enum DeliveryStatus {
 }
 
 export enum QuoteStatus {
-    Sent = 'sent',
-    Reviewed = 'reviewed',
-    Accepted = 'accepted',
-    Expired = 'expired',
+    Pending = 'pending',       // Submitted by customer (Quote Request)
+    Drafting = 'drafting',     // Patrick is working on it
+    Sent = 'sent',             // Official quote emailed to client
+    Accepted = 'accepted',     // Client approved it
+    Expired = 'expired',       // Quote expired
 }
 
 export enum InvoiceStatus {

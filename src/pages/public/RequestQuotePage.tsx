@@ -107,7 +107,7 @@ export default function RequestQuotePage() {
                 eventType: formData.eventType,
                 guestCount: parseInt(formData.guestCount) || 0,
                 venue: formData.location,
-                status: QuoteStatus.Sent,
+                status: QuoteStatus.Pending,
                 items: cartItems.map(item => ({
                     productId: item.inventoryItem.id,
                     name: item.inventoryItem.name,

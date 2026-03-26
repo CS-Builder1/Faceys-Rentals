@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { quoteService } from '../../services/quoteService'
 import { Quote, QuoteStatus } from '../../types'
 import { format } from 'date-fns'
-import { Eye, X, Mail, FileText, CheckCircle, Loader2, Phone } from 'lucide-react'
+import { Eye, X, Mail, FileText, Loader2, Phone } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { createFollowUpUpdate, getHoursSince, isQuoteFollowUpOverdue } from '../../utils/quoteWorkflow'
 
@@ -36,7 +36,7 @@ export default function QuotesAdminPage() {
 
     useEffect(() => {
         const queryFilter = searchParams.get('filter')
-        if (queryFilter === 'needs_followup' || queryFilter === QuoteStatus.Sent || queryFilter === QuoteStatus.Reviewed || queryFilter === QuoteStatus.Accepted) {
+        if (queryFilter === 'needs_followup' || queryFilter === QuoteStatus.Pending || queryFilter === QuoteStatus.Sent || queryFilter === QuoteStatus.Drafting || queryFilter === QuoteStatus.Accepted) {
             setStatusFilter(queryFilter as QueueFilter)
         }
     }, [searchParams])
@@ -44,11 +44,24 @@ export default function QuotesAdminPage() {
     const handleMarkAsReviewed = async (quote: Quote) => {
         setIsProcessing(true)
         try {
-            await quoteService.update(quote.id, { status: QuoteStatus.Reviewed })
+            await quoteService.update(quote.id, { status: QuoteStatus.Drafting })
             await fetchQuotes()
             setSelectedQuote(null)
         } catch (error) {
-            console.error("Error marking quote as reviewed", error)
+            console.error("Error marking quote as drafting", error)
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    const handleMarkAsSent = async (quote: Quote) => {
+        setIsProcessing(true)
+        try {
+            await quoteService.update(quote.id, { status: QuoteStatus.Sent })
+            await fetchQuotes()
+            setSelectedQuote(null)
+        } catch (error) {
+            console.error("Error marking quote as sent", error)
         } finally {
             setIsProcessing(false)
         }
@@ -75,9 +88,10 @@ export default function QuotesAdminPage() {
 
     const summary = {
         total: quotes.length,
-        sent: quotes.filter(q => q.status === QuoteStatus.Sent).length,
+        pending: quotes.filter(q => q.status === QuoteStatus.Pending).length,
         followUp: quotes.filter(needsFollowUp).length,
-        reviewed: quotes.filter(q => q.status === QuoteStatus.Reviewed).length,
+        drafting: quotes.filter(q => q.status === QuoteStatus.Drafting).length,
+        sent: quotes.filter(q => q.status === QuoteStatus.Sent).length,
         accepted: quotes.filter(q => q.status === QuoteStatus.Accepted).length,
     }
 
@@ -93,8 +107,8 @@ export default function QuotesAdminPage() {
         })
         .sort((a, b) => {
             // Sent and follow-up items first, then oldest first to improve triage
-            const aPriority = needsFollowUp(a) ? 2 : a.status === QuoteStatus.Sent ? 1 : 0
-            const bPriority = needsFollowUp(b) ? 2 : b.status === QuoteStatus.Sent ? 1 : 0
+            const aPriority = needsFollowUp(a) ? 2 : a.status === QuoteStatus.Pending ? 1 : 0
+            const bPriority = needsFollowUp(b) ? 2 : b.status === QuoteStatus.Pending ? 1 : 0
             if (aPriority !== bPriority) return bPriority - aPriority
             return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         })
@@ -108,11 +122,12 @@ export default function QuotesAdminPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
                 <SummaryCard label="Total" value={summary.total} tone="slate" />
-                <SummaryCard label="Sent" value={summary.sent} tone="amber" />
+                <SummaryCard label="Pending" value={summary.pending} tone="amber" />
                 <SummaryCard label="Needs Follow-up" value={summary.followUp} tone="red" />
-                <SummaryCard label="Reviewed" value={summary.reviewed} tone="blue" />
+                <SummaryCard label="Drafting" value={summary.drafting} tone="blue" />
+                <SummaryCard label="Sent" value={summary.sent} tone="purple" />
                 <SummaryCard label="Accepted" value={summary.accepted} tone="emerald" />
             </div>
 
@@ -126,9 +141,10 @@ export default function QuotesAdminPage() {
                 <div className="flex flex-wrap gap-2">
                     {[
                         { key: 'all', label: 'All' },
-                        { key: QuoteStatus.Sent, label: 'Sent' },
+                        { key: QuoteStatus.Pending, label: 'Pending' },
                         { key: 'needs_followup', label: 'Needs Follow-up' },
-                        { key: QuoteStatus.Reviewed, label: 'Reviewed' },
+                        { key: QuoteStatus.Drafting, label: 'Drafting' },
+                        { key: QuoteStatus.Sent, label: 'Sent' },
                         { key: QuoteStatus.Accepted, label: 'Accepted' },
                     ].map((filter) => (
                         <button
@@ -193,14 +209,15 @@ export default function QuotesAdminPage() {
                                             <div className="flex flex-col items-start gap-1.5">
                                                 <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                                                 needsFollowUp(quote) ? 'bg-red-100 text-red-700' :
-                                                quote.status === QuoteStatus.Sent ? 'bg-amber-100 text-amber-700' :
-                                                quote.status === QuoteStatus.Reviewed ? 'bg-blue-100 text-blue-700' :
+                                                quote.status === QuoteStatus.Pending ? 'bg-amber-100 text-amber-700' :
+                                                quote.status === QuoteStatus.Drafting ? 'bg-blue-100 text-blue-700' :
+                                                quote.status === QuoteStatus.Sent ? 'bg-purple-100 text-purple-700' :
                                                 quote.status === QuoteStatus.Accepted ? 'bg-emerald-100 text-emerald-700' :
                                                 'bg-slate-100 text-slate-700'
                                             }`}>
                                                     {needsFollowUp(quote) ? 'follow-up overdue' : quote.status}
                                                 </span>
-                                                {quote.status === QuoteStatus.Sent && (
+                                                {quote.status === QuoteStatus.Pending && (
                                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                                                         {hoursSince(quote)}h since received
                                                     </span>
@@ -213,13 +230,13 @@ export default function QuotesAdminPage() {
                                         </td>
                                         <td className="px-8 py-6 text-right">
                                             <div className="inline-flex items-center gap-2">
-                                                {quote.status === QuoteStatus.Sent && (
+                                                {quote.status === QuoteStatus.Pending && (
                                                     <button
                                                         onClick={() => handleMarkAsReviewed(quote)}
                                                         disabled={isProcessing}
                                                         className="px-3 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
                                                     >
-                                                        Review
+                                                        Start Drafting
                                                     </button>
                                                 )}
                                                 <button 
@@ -370,30 +387,42 @@ export default function QuotesAdminPage() {
                             )}
 
                             {selectedQuote.status === QuoteStatus.Accepted ? (
-                                <div className="px-5 py-2.5 rounded-xl text-sm font-bold text-emerald-700 bg-emerald-100 flex items-center gap-2">
-                                    <CheckCircle className="w-4 h-4" />
-                                    Invoice Created
-                                </div>
+                                <button 
+                                    onClick={() => handleConvertToInvoice(selectedQuote)}
+                                    disabled={isProcessing}
+                                    className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/30 disabled:opacity-50"
+                                >
+                                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                                    Convert to Invoice
+                                </button>
                             ) : (
                                 <>
-                                    {selectedQuote.status === QuoteStatus.Sent && (
+                                    {selectedQuote.status === QuoteStatus.Pending && (
                                         <button 
                                             onClick={() => handleMarkAsReviewed(selectedQuote)}
                                             disabled={isProcessing}
                                             className="px-5 py-2.5 rounded-xl text-sm font-bold text-blue-700 bg-blue-100 hover:bg-blue-200 transition-all flex items-center gap-2 disabled:opacity-50"
                                         >
                                             {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
-                                            Mark as Reviewed
+                                            Start Drafting
                                         </button>
                                     )}
-                                    <button 
-                                        onClick={() => handleConvertToInvoice(selectedQuote)}
-                                        disabled={isProcessing}
-                                        className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-all flex items-center gap-2 shadow-lg shadow-primary/30 disabled:opacity-50"
-                                    >
-                                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                                        Convert to Invoice
-                                    </button>
+                                    {selectedQuote.status === QuoteStatus.Drafting && (
+                                        <button 
+                                            onClick={() => handleMarkAsSent(selectedQuote)}
+                                            disabled={isProcessing}
+                                            className="px-5 py-2.5 rounded-xl text-sm font-bold text-purple-700 bg-purple-100 hover:bg-purple-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                                            Mark as Sent
+                                        </button>
+                                    )}
+                                    {selectedQuote.status === QuoteStatus.Sent && (
+                                        <div className="px-5 py-2.5 rounded-xl text-sm font-bold text-amber-700 bg-amber-100 flex items-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Waiting for Client Acceptance
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -405,12 +434,13 @@ export default function QuotesAdminPage() {
     )
 }
 
-function SummaryCard({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'amber' | 'red' | 'blue' | 'emerald' }) {
+function SummaryCard({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'amber' | 'red' | 'blue' | 'purple' | 'emerald' }) {
     const toneClasses = {
         slate: 'bg-slate-50 text-slate-700 border-slate-200',
         amber: 'bg-amber-50 text-amber-700 border-amber-200',
         red: 'bg-red-50 text-red-700 border-red-200',
         blue: 'bg-blue-50 text-blue-700 border-blue-200',
+        purple: 'bg-purple-50 text-purple-700 border-purple-200',
         emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     }[tone]
 

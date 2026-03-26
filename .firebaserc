@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "faceys-rentals-catering-prod"
+  },
   "targets": {},
   "etags": {}
 }

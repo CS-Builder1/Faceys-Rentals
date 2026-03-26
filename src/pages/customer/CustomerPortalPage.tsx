@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Event, Quote, UserRole, Client, Invoice } from '../../types';
+import { Event, Quote, UserRole, Client, Invoice, QuoteStatus } from '../../types';
 import { eventService } from '../../services/eventService';
 import { quoteService } from '../../services/quoteService';
 import { clientService } from '../../services/clientService';
@@ -168,8 +168,12 @@ export default function CustomerPortalPage() {
         switch (status.toLowerCase()) {
             case 'confirmed': case 'completed': case 'paid': case 'accepted':
                 return 'bg-emerald-100 text-emerald-700';
-            case 'inquiry': case 'quoted': case 'sent': case 'unpaid':
+            case 'sent':
+                return 'bg-indigo-100 text-indigo-700';
+            case 'inquiry': case 'quoted': case 'pending':
                 return 'bg-amber-100 text-amber-700';
+            case 'drafting':
+                return 'bg-purple-100 text-purple-700';
             case 'cancelled': case 'expired': case 'overdue':
                 return 'bg-red-100 text-red-700';
             default:
@@ -516,9 +520,28 @@ function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoic
 }
 
 function QuoteCard({ quote, getStatusColor }: { quote: Quote, getStatusColor: (s:string)=>string }) {
+    const [isAccepting, setIsAccepting] = useState(false);
+    
+    const handleAccept = async () => {
+        if (!window.confirm('Are you sure you want to accept this quote? This will confirm your request.')) return;
+        setIsAccepting(true);
+        try {
+            await quoteService.update(quote.id, { status: QuoteStatus.Accepted });
+            // The parent page will need to refresh or the state needs to update.
+            // Since we're in a child, we might want a callback, but for now 
+            // a simple window reload or letting the user know is okay if fetchData is accessible.
+            window.location.reload(); 
+        } catch (err) {
+            console.error(err);
+            alert('Failed to accept quote. Please try again.');
+        } finally {
+            setIsAccepting(false);
+        }
+    };
+
     return (
         <div className="p-6 rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-2 h-full bg-primary/20"></div>
+            <div className={`absolute top-0 left-0 w-2 h-full ${quote.status === QuoteStatus.Sent ? 'bg-indigo-500' : 'bg-primary/20'}`}></div>
             
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex gap-4">
@@ -529,7 +552,7 @@ function QuoteCard({ quote, getStatusColor }: { quote: Quote, getStatusColor: (s
                         <h3 className="font-black text-ocean-deep text-lg flex items-center gap-2">
                             {quote.eventType ? quote.eventType.charAt(0).toUpperCase() + quote.eventType.slice(1) : 'Rental'} Request
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(quote.status)}`}>
-                                {quote.status}
+                                {quote.status === QuoteStatus.Drafting ? 'Reviewing' : quote.status}
                             </span>
                         </h3>
                         <p className="text-slate-400 text-sm mt-1 font-medium">Requested on {format(new Date(quote.createdAt), 'PPP')}</p>
@@ -561,15 +584,27 @@ function QuoteCard({ quote, getStatusColor }: { quote: Quote, getStatusColor: (s
                     <div className="bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 inline-block min-w-[140px]">
                          <p className="text-xs text-slate-400 uppercase font-bold mb-1 border-b border-slate-200 pb-1">Quote Total</p>
                          <p className="text-2xl font-black text-ocean-deep">
-                             {quote.total > 0 ? `$${quote.total.toFixed(2)}` : 'Pending'}
+                             {(quote.status === QuoteStatus.Pending || quote.status === QuoteStatus.Drafting) ? 'Pending Review' : (quote.total > 0 ? `$${quote.total.toFixed(2)}` : 'Pending')}
                          </p>
                     </div>
                     
-                    {quote.pdfUrl && (
-                        <a href={quote.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline mt-4 inline-block">
-                            Download PDF Version
-                        </a>
-                    )}
+                    <div className="flex flex-col gap-2 mt-4 items-end">
+                        {quote.status === QuoteStatus.Sent && (
+                            <button 
+                                onClick={handleAccept}
+                                disabled={isAccepting}
+                                className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2"
+                            >
+                                {isAccepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                Accept Quote
+                            </button>
+                        )}
+                        {quote.pdfUrl && (
+                            <a href={quote.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline inline-block">
+                                Download PDF Version
+                            </a>
+                        )}
+                    </div>
                 </div>
             </div>
             

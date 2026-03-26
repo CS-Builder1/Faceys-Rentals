@@ -84,7 +84,7 @@ export default function DashboardPage() {
     }
 
     // --- Derived Data ---
-    const newRequests = quotes.filter(q => q.status === QuoteStatus.Sent).length
+    const newRequests = quotes.filter(q => q.status === QuoteStatus.Pending).length
     const revenueMTD = invoices
         .filter(i => i.status === InvoiceStatus.Paid && i.createdAt && isThisMonth(i.createdAt))
         .reduce((sum, i) => sum + i.total, 0)
@@ -108,7 +108,8 @@ export default function DashboardPage() {
         date: req.createdAt ? format(req.createdAt, 'MMM dd, yyyy') : 'Recently',
         type: req.eventType || 'Rental',
         status: req.status.charAt(0).toUpperCase() + req.status.slice(1),
-        statusColor: req.status === QuoteStatus.Sent ? 'bg-amber-100 text-amber-700' :
+        statusColor: req.status === QuoteStatus.Pending ? 'bg-amber-100 text-amber-700' :
+            req.status === QuoteStatus.Sent ? 'bg-blue-100 text-blue-700' :
             req.status === QuoteStatus.Accepted ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700',
         initials: (req.customerName || 'O').substring(0, 2).toUpperCase()
     }))
@@ -152,7 +153,8 @@ export default function DashboardPage() {
     ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 3)
 
     const conversionData = [
-        { name: 'Sent', value: quotes.filter(q => q.status === QuoteStatus.Sent).length, fill: '#8B0000' },
+        { name: 'Pending', value: quotes.filter(q => q.status === QuoteStatus.Pending).length, fill: '#8B0000' },
+        { name: 'Sent', value: quotes.filter(q => q.status === QuoteStatus.Sent).length, fill: '#EAB308' },
         { name: 'Accepted', value: quotes.filter(q => q.status === QuoteStatus.Accepted).length, fill: '#059669' },
         { name: 'Events', value: events.length, fill: '#1E293B' },
     ]

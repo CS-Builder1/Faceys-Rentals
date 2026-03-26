@@ -15,7 +15,7 @@ import {
     type DocumentData,
 } from 'firebase/firestore'
 import { db, toDate, toOptionalDate, toTimestamp } from './firebase'
-import type { Quote, QuoteStatus } from '../types'
+import { QuoteStatus, type Quote } from '../types'
 
 const COLLECTION = 'booking_requests'
 const ref = collection(db, COLLECTION)
@@ -30,7 +30,7 @@ function fromFirestore(id: string, data: DocumentData): Quote {
         discount: data.discount ?? 0,
         depositRequired: data.depositRequired ?? 0,
         expirationDate: toDate(data.expirationDate),
-        status: data.status ?? 'sent',
+        status: data.status ?? QuoteStatus.Pending,
         pdfUrl: data.pdfUrl,
         createdAt: toDate(data.createdAt),
         // Inquiry fields
