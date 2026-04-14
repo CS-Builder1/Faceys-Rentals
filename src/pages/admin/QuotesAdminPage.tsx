@@ -190,7 +190,9 @@ export default function QuotesAdminPage() {
                                         <td className="px-8 py-6">
                                             <div className="space-y-1">
                                                 <span className="block text-sm font-bold text-ocean-deep dark:text-white">{quote.customerName || 'Online Request'}</span>
-                                                <span className="text-[10px] text-slate-400 font-medium">{quote.customerEmail || 'No email provided'}</span>
+                                                <span className="text-[10px] text-slate-400 font-medium">
+                                                    {quote.company ? `${quote.company} • ` : ''}{quote.customerEmail || 'No email provided'}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
@@ -291,6 +293,12 @@ export default function QuotesAdminPage() {
                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Email</p>
                                             <p className="text-sm font-bold text-ocean-deep dark:text-white">{selectedQuote.customerEmail || 'N/A'}</p>
                                         </div>
+                                        {selectedQuote.company && (
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Organization</p>
+                                                <p className="text-sm font-bold text-ocean-deep dark:text-white">{selectedQuote.company}</p>
+                                            </div>
+                                        )}
                                         <div>
                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Phone</p>
                                             <p className="text-sm font-bold text-ocean-deep dark:text-white">{selectedQuote.customerPhone || 'N/A'}</p>

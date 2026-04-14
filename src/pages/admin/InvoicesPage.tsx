@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { invoiceService } from '../../services/invoiceService'
 import { quoteService } from '../../services/quoteService'
-import { Invoice, InvoiceStatus, DepositType, InvoiceLineItem, QuoteStatus, Quote } from '../../types'
+import { clientService } from '../../services/clientService'
+import { eventService } from '../../services/eventService'
+import { Invoice, InvoiceStatus, DepositType, InvoiceLineItem, QuoteStatus, Quote, EventType, EventStatus, DeliveryStatus } from '../../types'
 import { format, addDays } from 'date-fns'
 import { Plus, X, Loader2, FileText, CheckCircle, Trash2 } from 'lucide-react'
 import { calculateBalanceDue } from '../../utils/invoiceCalculations'
@@ -15,6 +17,7 @@ export default function InvoicesPage() {
     // Modal state
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+    const [sourceQuote, setSourceQuote] = useState<Quote | null>(null)
 
     // Form state for new invoice
     const [eventId, setEventId] = useState('')
@@ -29,6 +32,7 @@ export default function InvoicesPage() {
     useEffect(() => {
         if (location.state && location.state.quoteForInvoice) {
             const quote = location.state.quoteForInvoice as Quote
+            setSourceQuote(quote)
             setIsCreateModalOpen(true)
             setEventId(quote.eventId || '')
             setLinkedQuoteId(quote.id)
@@ -62,6 +66,67 @@ export default function InvoicesPage() {
     useEffect(() => {
         fetchInvoices()
     }, [])
+
+    const inferEventType = (quote: Quote): EventType => {
+        const notes = `${quote.notes || ''} ${quote.eventType || ''}`.toLowerCase()
+        const hasRentalItems = (quote.items?.length || 0) > 0
+        const mentionsCatering = notes.includes('cater')
+
+        if (hasRentalItems && mentionsCatering) return EventType.Both
+        if (mentionsCatering) return EventType.Catering
+        return EventType.Rental
+    }
+
+    const resolveClientIdForQuote = async (quote: Quote): Promise<string | undefined> => {
+        if (quote.clientId) return quote.clientId
+        if (!quote.customerEmail) return undefined
+
+        const existingClients = await clientService.getByEmail(quote.customerEmail)
+        if (existingClients.length > 0) {
+            return existingClients[0].id
+        }
+
+        return clientService.create({
+            businessName: quote.company || '',
+            contactName: quote.customerName || 'Facey\'s Client',
+            email: quote.customerEmail,
+            phone: quote.customerPhone || '',
+            billingAddress: quote.venue || '',
+            billingCity: '',
+            billingState: '',
+            billingZip: '',
+            preferredContact: 'email',
+            referralSource: 'website',
+            specialNotes: quote.notes || '',
+            internalNotes: `Created automatically from quote ${quote.id}`,
+            specialDiscount: 0,
+            status: 'lead',
+            notes: quote.notes || '',
+            lifetimeValue: 0,
+            createdAt: new Date(),
+        })
+    }
+
+    const ensureEventForQuote = async (quote: Quote, clientId?: string) => {
+        if (quote.eventId) return quote.eventId
+
+        return eventService.create({
+            clientId: clientId || '',
+            clientName: quote.customerName || '',
+            clientEmail: quote.customerEmail,
+            sourceQuoteId: quote.id,
+            eventDate: quote.eventDate ? new Date(quote.eventDate) : new Date(),
+            startTime: '',
+            endTime: '',
+            venueAddress: quote.venue || '',
+            eventType: inferEventType(quote),
+            status: EventStatus.Confirmed,
+            deliveryStatus: DeliveryStatus.Scheduled,
+            assignedStaffIds: [],
+            internalNotes: quote.notes || '',
+            createdAt: new Date(),
+        })
+    }
 
     const handleAddLineItem = () => {
         setLineItems([...lineItems, { itemId: `item-${Date.now()}`, description: '', quantity: 1, unitPrice: 0, subtotal: 0 }])
@@ -105,9 +170,22 @@ export default function InvoicesPage() {
 
         setIsProcessing(true)
         try {
+            let finalEventId = eventId || `evt-${Date.now()}`
+            let quoteUpdates: Partial<Quote> = { status: QuoteStatus.Accepted }
+
+            if (sourceQuote) {
+                const resolvedClientId = await resolveClientIdForQuote(sourceQuote)
+                finalEventId = await ensureEventForQuote(sourceQuote, resolvedClientId)
+                quoteUpdates = {
+                    ...quoteUpdates,
+                    clientId: resolvedClientId,
+                    eventId: finalEventId,
+                }
+            }
+
             const invoiceNumber = `INV-${new Date().getTime().toString().slice(-6)}`
             await invoiceService.create({
-                eventId: eventId || `evt-${Date.now()}`,
+                eventId: finalEventId,
                 quoteId: linkedQuoteId || undefined,
                 invoiceNumber,
                 lineItems,
@@ -123,7 +201,7 @@ export default function InvoicesPage() {
             })
             
             if (linkedQuoteId) {
-                await quoteService.update(linkedQuoteId, { status: QuoteStatus.Accepted })
+                await quoteService.update(linkedQuoteId, quoteUpdates)
             }
 
             setIsCreateModalOpen(false)
@@ -139,6 +217,7 @@ export default function InvoicesPage() {
     const resetForm = () => {
         setEventId('')
         setLinkedQuoteId('')
+        setSourceQuote(null)
         setDueDate(format(addDays(new Date(), 14), 'yyyy-MM-dd'))
         setLineItems([])
         setTaxRate(0)
@@ -171,7 +250,10 @@ export default function InvoicesPage() {
                 </div>
                 <div className="flex items-center gap-4">
                     <button 
-                        onClick={() => setIsCreateModalOpen(true)}
+                        onClick={() => {
+                            resetForm()
+                            setIsCreateModalOpen(true)
+                        }}
                         className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-all flex items-center gap-2"
                     >
                         <Plus className="w-4 h-4" />
@@ -325,7 +407,9 @@ export default function InvoicesPage() {
                         <div className="px-8 py-6 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                             <div>
                                 <h3 className="text-xl font-black text-ocean-deep dark:text-white">Create Invoice</h3>
-                                <p className="text-sm text-slate-500 font-medium mt-1">Draft a new invoice manually.</p>
+                                <p className="text-sm text-slate-500 font-medium mt-1">
+                                    {sourceQuote ? 'Convert an approved quote into a live invoice and booking record.' : 'Draft a new invoice manually.'}
+                                </p>
                             </div>
                             <button 
                                 onClick={() => { setIsCreateModalOpen(false); resetForm(); }}
@@ -336,13 +420,32 @@ export default function InvoicesPage() {
                         </div>
                         
                         <form onSubmit={handleCreateInvoice} className="p-8 overflow-y-auto flex-1 space-y-8">
+                            {sourceQuote && (
+                                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Linked Quote</p>
+                                        <p className="text-sm font-bold text-emerald-900 mt-1">
+                                            {sourceQuote.customerName || 'Client'}{sourceQuote.company ? ` • ${sourceQuote.company}` : ''}
+                                        </p>
+                                        <p className="text-sm text-emerald-800">
+                                            {sourceQuote.eventDate ? format(new Date(sourceQuote.eventDate), 'PPP') : 'Event date TBD'}
+                                            {sourceQuote.venue ? ` • ${sourceQuote.venue}` : ''}
+                                        </p>
+                                    </div>
+                                    <div className="text-sm font-bold text-emerald-900">
+                                        Quote total: ${sourceQuote.total.toFixed(2)}
+                                    </div>
+                                </div>
+                            )}
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Event Reference</label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                                        {sourceQuote ? 'Existing Booking ID (Optional)' : 'Event Reference'}
+                                    </label>
                                     <input 
                                         type="text" 
-                                        placeholder="E.g. Johnson Wedding"
+                                        placeholder={sourceQuote ? 'Leave blank to create the booking automatically' : 'E.g. Johnson Wedding'}
                                         value={eventId}
                                         onChange={(e) => setEventId(e.target.value)}
                                         className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-ocean-deep dark:text-white"

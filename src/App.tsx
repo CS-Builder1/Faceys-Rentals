@@ -8,6 +8,7 @@ const HomePage = lazy(() => import('./pages/public/HomePage'))
 const CatalogPage = lazy(() => import('./pages/public/CatalogPage'))
 const CateringPage = lazy(() => import('./pages/public/CateringPage'))
 const RequestQuotePage = lazy(() => import('./pages/public/RequestQuotePage'))
+const PrivacyPolicyPage = lazy(() => import('./pages/public/PrivacyPolicyPage'))
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
 const QuotesAdminPage = lazy(() => import('./pages/admin/QuotesAdminPage'))
 const InventoryAdminPage = lazy(() => import('./pages/admin/InventoryAdminPage'))
@@ -45,6 +46,7 @@ function App() {
                                 <Route path="/catalog" element={<CatalogPage />} />
                                 <Route path="/catering" element={<CateringPage />} />
                                 <Route path="/request-quote" element={<RequestQuotePage />} />
+                                <Route path="/privacy" element={<PrivacyPolicyPage />} />
                                 
                                 {/* Protected Customer Routes */}
                                 <Route element={<AdminRoute allowedRoles={[UserRole.Client]} />}>

@@ -9,7 +9,7 @@ import type { SiteContent } from '../types'
 const COLLECTION = 'site_content'
 const DOC_ID = 'global'
 
-const defaultContent: SiteContent = {
+export const defaultContent: SiteContent = {
     id: DOC_ID,
     siteName: "Facey's Party Rentals & Catering",
     contactEmail: 'hello@faceysrentals.com',
@@ -69,8 +69,6 @@ export const contentService = {
     async getGlobalContent(): Promise<SiteContent> {
         const snap = await getDoc(doc(db, COLLECTION, DOC_ID))
         if (!snap.exists()) {
-            // Seed the DB if it doesn't exist
-            await setDoc(doc(db, COLLECTION, DOC_ID), defaultContent)
             return defaultContent
         }
         return { ...defaultContent, ...snap.data() } as SiteContent

@@ -60,15 +60,19 @@ export const inventoryService = {
     },
 
     async getByCategory(category: ItemCategory): Promise<InventoryItem[]> {
-        const q = query(ref, where('category', '==', category), orderBy('name'))
+        const q = query(ref, where('category', '==', category))
         const snap = await getDocs(q)
-        return snap.docs.map((d) => fromFirestore(d.id, d.data()))
+        return snap.docs
+            .map((d) => fromFirestore(d.id, d.data()))
+            .sort((a, b) => a.name.localeCompare(b.name))
     },
 
     async getActive(): Promise<InventoryItem[]> {
-        const q = query(ref, where('status', '==', 'active'), orderBy('name'))
+        const q = query(ref, where('status', '==', 'active'))
         const snap = await getDocs(q)
-        return snap.docs.map((d) => fromFirestore(d.id, d.data()))
+        return snap.docs
+            .map((d) => fromFirestore(d.id, d.data()))
+            .sort((a, b) => a.name.localeCompare(b.name))
     },
 
     async getById(id: string): Promise<InventoryItem | null> {

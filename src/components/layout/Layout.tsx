@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet, useLocation, Link } from 'react-router-dom'
 import Navbar from './Navbar'
 import { useContent } from '../../contexts/ContentContext'
@@ -6,6 +7,23 @@ export default function Layout() {
     const location = useLocation()
     const { content } = useContent()
     const isAdmin = location.pathname.startsWith('/admin')
+
+    useEffect(() => {
+        if (location.hash) {
+            const id = location.hash.replace('#', '')
+            const scrollToTarget = () => {
+                const el = document.getElementById(id)
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+            }
+
+            const frame = window.requestAnimationFrame(scrollToTarget)
+            return () => window.cancelAnimationFrame(frame)
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }, [location.pathname, location.hash])
 
     // Admin pages use their own sidebar layout, no shared navbar/footer
     if (isAdmin) {
@@ -68,9 +86,9 @@ export default function Layout() {
                     <div className="space-y-6">
                         <h3 className="text-white font-bold uppercase tracking-wider text-xs">Company</h3>
                         <ul className="space-y-4 text-sm font-medium">
-                            <li><a className="hover:text-primary transition-colors" href="#">About Us</a></li>
-                            <li><a className="hover:text-primary transition-colors" href="#">Testimonials</a></li>
-                            <li><a className="hover:text-primary transition-colors" href="#">Privacy Policy</a></li>
+                            <li><Link className="hover:text-primary transition-colors" to="/#about">About Us</Link></li>
+                            <li><Link className="hover:text-primary transition-colors" to="/#testimonials">Testimonials</Link></li>
+                            <li><Link className="hover:text-primary transition-colors" to="/privacy">Privacy Policy</Link></li>
                         </ul>
                     </div>
 
@@ -83,11 +101,15 @@ export default function Layout() {
                             </li>
                             <li className="flex items-center gap-3">
                                 <span className="material-symbols-outlined text-primary text-lg">phone</span>
-                                <span>{content?.contactPhone}</span>
+                                <a href={`tel:${content?.contactPhone || ''}`} className="hover:text-primary transition-colors">
+                                    {content?.contactPhone}
+                                </a>
                             </li>
                             <li className="flex items-center gap-3">
                                 <span className="material-symbols-outlined text-primary text-lg">mail</span>
-                                <span>{content?.contactEmail}</span>
+                                <a href={`mailto:${content?.contactEmail || ''}`} className="hover:text-primary transition-colors">
+                                    {content?.contactEmail}
+                                </a>
                             </li>
                         </ul>
                     </div>

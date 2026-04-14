@@ -6,7 +6,7 @@ import { quoteService } from '../../services/quoteService';
 import { clientService } from '../../services/clientService';
 import { invoiceService } from '../../services/invoiceService';
 import { User, ShieldCheck, Mail, Phone, Lock, LogOut, Save, Loader2, MessageSquare, Briefcase, Calendar, MapPin, CheckCircle2, AlertCircle, Building2, CreditCard, FileText } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../services/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { format, isBefore, startOfToday } from 'date-fns';
@@ -20,6 +20,7 @@ export default function CustomerPortalPage() {
     const [events, setEvents] = useState<Event[]>([]);
     const [invoices, setInvoices] = useState<Record<string, Invoice[]>>({});
     const [quotes, setQuotes] = useState<Quote[]>([]);
+    const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     
     // Form states
@@ -36,35 +37,43 @@ export default function CustomerPortalPage() {
         specialNotes: ''
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [acceptingQuoteId, setAcceptingQuoteId] = useState<string | null>(null);
     const [msg, setMsg] = useState({ text: '', type: '' });
 
     const fetchData = useCallback(async () => {
         if (!userProfile) return;
         setIsLoading(true);
         try {
-            // Fetch comprehensive client profile
-            const clientDoc = await clientService.getById(userProfile.id);
-            if (clientDoc) {
-                setClientData(clientDoc);
+            let resolvedClient = await clientService.getById(userProfile.id);
+            if (!resolvedClient && userProfile.email) {
+                const matchedClients = await clientService.getByEmail(userProfile.email);
+                resolvedClient = matchedClients[0] || null;
+            }
+
+            if (resolvedClient) {
+                setClientData(resolvedClient);
                 setFormData({
-                    name: clientDoc.contactName || userProfile.name || '',
-                    phone: clientDoc.phone || userProfile.phone || '',
-                    businessName: clientDoc.businessName || '',
-                    billingAddress: clientDoc.billingAddress || '',
-                    billingCity: clientDoc.billingCity || '',
-                    billingState: clientDoc.billingState || '',
-                    billingZip: clientDoc.billingZip || '',
-                    preferredContact: clientDoc.preferredContact || 'email',
-                    referralSource: clientDoc.referralSource || '',
-                    specialNotes: clientDoc.specialNotes || ''
+                    name: resolvedClient.contactName || userProfile.name || '',
+                    phone: resolvedClient.phone || userProfile.phone || '',
+                    businessName: resolvedClient.businessName || '',
+                    billingAddress: resolvedClient.billingAddress || '',
+                    billingCity: resolvedClient.billingCity || '',
+                    billingState: resolvedClient.billingState || '',
+                    billingZip: resolvedClient.billingZip || '',
+                    preferredContact: resolvedClient.preferredContact || 'email',
+                    referralSource: resolvedClient.referralSource || '',
+                    specialNotes: resolvedClient.specialNotes || ''
                 });
             } else {
-                // Fallback for missing customer doc
+                setClientData(null);
                 setFormData(prev => ({ ...prev, name: userProfile.name || '', phone: userProfile.phone || '' }));
             }
 
-            // Fetch Events
-            const userEvents = await eventService.getByClient(userProfile.id);
+            const userEvents = resolvedClient
+                ? await eventService.getByClient(resolvedClient.id)
+                : userProfile.email
+                    ? await eventService.getByClientEmail(userProfile.email)
+                    : [];
             setEvents(userEvents);
 
             // Fetch Invoices for those Events
@@ -77,12 +86,9 @@ export default function CustomerPortalPage() {
             );
             setInvoices(invoicesMap);
             
-            // Fetch Quotes (Try by clientId first, fallback to email if necessary)
-            // Using resilient approach: get by clientId, if none, maybe by email
-            let userQuotes = await quoteService.getByClient(userProfile.id);
+            let userQuotes = resolvedClient ? await quoteService.getByClient(resolvedClient.id) : [];
             if (userQuotes.length === 0 && userProfile.email) {
-                 const allQuotes = await quoteService.getAll();
-                 userQuotes = allQuotes.filter(q => q.customerEmail === userProfile.email);
+                userQuotes = await quoteService.getByCustomerEmail(userProfile.email);
             }
             setQuotes(userQuotes);
         } catch (err) {
@@ -106,17 +112,17 @@ export default function CustomerPortalPage() {
         setMsg({ text: '', type: '' });
 
         try {
-            // Update User Doc
             await updateDoc(doc(db, 'users', userProfile.id), {
                 name: formData.name,
                 phone: formData.phone,
                 updatedAt: new Date().toISOString()
             });
 
-            // Update or Create Customer Doc
             if (clientData) {
-                await updateDoc(doc(db, 'customers', userProfile.id), {
+                await updateDoc(doc(db, 'customers', clientData.id), {
+                    id: clientData.id,
                     contactName: formData.name,
+                    email: clientData.email || userProfile.email || '',
                     phone: formData.phone,
                     businessName: formData.businessName,
                     billingAddress: formData.billingAddress,
@@ -129,11 +135,29 @@ export default function CustomerPortalPage() {
                     updatedAt: new Date().toISOString()
                 });
             } else {
-                // Should exist but just in case
-                console.warn("Client doc not found during save, might need manual creation if rule blocks.");
+                const clientRef = doc(db, 'customers', userProfile.id);
+                await setDoc(clientRef, {
+                    id: userProfile.id,
+                    contactName: formData.name,
+                    email: userProfile.email || '',
+                    phone: formData.phone,
+                    businessName: formData.businessName,
+                    billingAddress: formData.billingAddress,
+                    billingCity: formData.billingCity,
+                    billingState: formData.billingState,
+                    billingZip: formData.billingZip,
+                    preferredContact: formData.preferredContact,
+                    referralSource: formData.referralSource,
+                    specialNotes: formData.specialNotes,
+                    notes: '',
+                    lifetimeValue: 0,
+                    createdAt: new Date(),
+                    status: 'active'
+                }, { merge: true });
             }
 
             setMsg({ text: 'Profile updated successfully!', type: 'success' });
+            await fetchData();
         } catch (err: any) {
             console.error(err);
             setMsg({ text: err.message || 'Failed to update profile.', type: 'error' });
@@ -149,6 +173,24 @@ export default function CustomerPortalPage() {
             setMsg({ text: 'Password reset link sent to your email.', type: 'success' });
         } catch (err: any) {
             setMsg({ text: err.message || 'Failed to send reset email.', type: 'error' });
+        }
+    };
+
+    const handleAcceptQuote = async (quote: Quote) => {
+        setAcceptingQuoteId(quote.id);
+        setMsg({ text: '', type: '' });
+
+        try {
+            await quoteService.update(quote.id, { status: QuoteStatus.Accepted });
+            setQuotes((current) =>
+                current.map((item) => item.id === quote.id ? { ...item, status: QuoteStatus.Accepted } : item)
+            );
+            setMsg({ text: 'Quote accepted successfully. The team will follow up with your invoice and booking details.', type: 'success' });
+        } catch (err: any) {
+            console.error(err);
+            setMsg({ text: err.message || 'We could not accept this quote right now. Please try again.', type: 'error' });
+        } finally {
+            setAcceptingQuoteId(null);
         }
     };
 
@@ -179,6 +221,11 @@ export default function CustomerPortalPage() {
             default:
                 return 'bg-slate-200 text-slate-700';
         }
+    };
+
+    const formatDeliveryStatus = (status?: string) => {
+        if (!status) return 'Pending';
+        return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
     };
 
     return (
@@ -280,7 +327,14 @@ export default function CustomerPortalPage() {
                                                 ) : (
                                                     <div className="grid gap-4">
                                                         {upcomingEvents.map((event) => (
-                                                            <BookingCard key={event.id} event={event} invoices={invoices[event.id]} getStatusColor={getStatusColor} />
+                                                            <BookingCard
+                                                                key={event.id}
+                                                                event={event}
+                                                                invoices={invoices[event.id]}
+                                                                getStatusColor={getStatusColor}
+                                                                formatDeliveryStatus={formatDeliveryStatus}
+                                                                onView={() => setSelectedEvent(event)}
+                                                            />
                                                         ))}
                                                     </div>
                                                 )}
@@ -292,7 +346,14 @@ export default function CustomerPortalPage() {
                                                     <h3 className="text-lg font-bold text-slate-400 uppercase tracking-widest">Past History</h3>
                                                     <div className="grid gap-4">
                                                         {pastEvents.map((event) => (
-                                                            <BookingCard key={event.id} event={event} invoices={invoices[event.id]} getStatusColor={getStatusColor} />
+                                                            <BookingCard
+                                                                key={event.id}
+                                                                event={event}
+                                                                invoices={invoices[event.id]}
+                                                                getStatusColor={getStatusColor}
+                                                                formatDeliveryStatus={formatDeliveryStatus}
+                                                                onView={() => setSelectedEvent(event)}
+                                                            />
                                                         ))}
                                                     </div>
                                                 </div>
@@ -312,7 +373,13 @@ export default function CustomerPortalPage() {
                                             ) : (
                                                 <div className="grid gap-6">
                                                     {quotes.map((quote) => (
-                                                        <QuoteCard key={quote.id} quote={quote} getStatusColor={getStatusColor} />
+                                                        <QuoteCard
+                                                            key={quote.id}
+                                                            quote={quote}
+                                                            getStatusColor={getStatusColor}
+                                                            onAccept={handleAcceptQuote}
+                                                            isAccepting={acceptingQuoteId === quote.id}
+                                                        />
                                                     ))}
                                                 </div>
                                             )}
@@ -471,11 +538,105 @@ export default function CustomerPortalPage() {
                     </div>
                 </div>
             </div>
+
+            {selectedEvent && (
+                <div className="fixed inset-0 z-50 bg-ocean-deep/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden">
+                        <div className="px-8 py-6 border-b border-slate-100 dark:border-white/10 flex items-start justify-between gap-4 bg-slate-50 dark:bg-slate-800/50">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-primary">Booking Details</p>
+                                <h2 className="text-2xl font-black text-ocean-deep dark:text-white mt-1 capitalize">
+                                    {selectedEvent.eventType} Booking
+                                </h2>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    {format(new Date(selectedEvent.eventDate), 'PPP')}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedEvent(null)}
+                                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <div className="p-8 space-y-6">
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Status</p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest ${getStatusColor(selectedEvent.status)}`}>
+                                            {selectedEvent.status}
+                                        </span>
+                                        <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-blue-100 text-blue-700">
+                                            {formatDeliveryStatus(selectedEvent.deliveryStatus)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Schedule</p>
+                                    <p className="mt-3 text-sm font-bold text-ocean-deep dark:text-white">
+                                        {selectedEvent.startTime || 'TBD'} - {selectedEvent.endTime || 'TBD'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Venue</p>
+                                <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
+                                    {selectedEvent.venueAddress || 'Venue details will be shared by the team.'}
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Team Notes</p>
+                                <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
+                                    {selectedEvent.internalNotes || 'No additional delivery or setup notes have been shared yet.'}
+                                </p>
+                            </div>
+
+                            {(invoices[selectedEvent.id] || []).length > 0 && (
+                                <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Invoices</p>
+                                    <div className="mt-4 space-y-3">
+                                        {(invoices[selectedEvent.id] || []).map((invoice) => (
+                                            <div key={invoice.id} className="flex items-center justify-between gap-4 rounded-2xl bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-white/10">
+                                                <div>
+                                                    <p className="text-sm font-bold text-ocean-deep dark:text-white">{invoice.invoiceNumber}</p>
+                                                    <p className="text-xs text-slate-500">Due {format(new Date(invoice.dueDate), 'PPP')}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-black text-ocean-deep dark:text-white">${invoice.total.toFixed(2)}</p>
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest ${getStatusColor(invoice.status)}`}>
+                                                        {invoice.status}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoices?: Invoice[], getStatusColor: (s:string)=>string }) {
+function BookingCard({
+    event,
+    invoices,
+    getStatusColor,
+    formatDeliveryStatus,
+    onView,
+}: {
+    event: Event
+    invoices?: Invoice[]
+    getStatusColor: (s: string) => string
+    formatDeliveryStatus: (status?: string) => string
+    onView: () => void
+}) {
     const mainInvoice = invoices && invoices.length > 0 ? invoices[0] : null;
 
     return (
@@ -502,6 +663,10 @@ function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoic
                     <MapPin className="w-4 h-4 text-slate-400 mt-1" />
                     <p className="text-sm text-slate-600">{event.venueAddress || 'No venue provided'}</p>
                 </div>
+                <div className="flex items-start gap-2">
+                    <Briefcase className="w-4 h-4 text-slate-400 mt-1" />
+                    <p className="text-sm text-slate-600">Delivery status: <strong>{formatDeliveryStatus(event.deliveryStatus)}</strong></p>
+                </div>
                 {mainInvoice && (
                     <div className="flex items-start gap-2">
                         <CreditCard className="w-4 h-4 text-slate-400 mt-1" />
@@ -511,7 +676,7 @@ function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoic
             </div>
 
             <div className="pt-4 mt-4 border-t border-slate-200 flex justify-end">
-                <button className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
+                <button onClick={onView} className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
                      View Complete Details
                 </button>
             </div>
@@ -519,25 +684,18 @@ function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoic
     );
 }
 
-function QuoteCard({ quote, getStatusColor }: { quote: Quote, getStatusColor: (s:string)=>string }) {
-    const [isAccepting, setIsAccepting] = useState(false);
-    
-    const handleAccept = async () => {
-        if (!window.confirm('Are you sure you want to accept this quote? This will confirm your request.')) return;
-        setIsAccepting(true);
-        try {
-            await quoteService.update(quote.id, { status: QuoteStatus.Accepted });
-            // The parent page will need to refresh or the state needs to update.
-            // Since we're in a child, we might want a callback, but for now 
-            // a simple window reload or letting the user know is okay if fetchData is accessible.
-            window.location.reload(); 
-        } catch (err) {
-            console.error(err);
-            alert('Failed to accept quote. Please try again.');
-        } finally {
-            setIsAccepting(false);
-        }
-    };
+function QuoteCard({
+    quote,
+    getStatusColor,
+    onAccept,
+    isAccepting,
+}: {
+    quote: Quote
+    getStatusColor: (s: string) => string
+    onAccept: (quote: Quote) => Promise<void>
+    isAccepting: boolean
+}) {
+    const [isConfirming, setIsConfirming] = useState(false);
 
     return (
         <div className="p-6 rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
@@ -590,14 +748,32 @@ function QuoteCard({ quote, getStatusColor }: { quote: Quote, getStatusColor: (s
                     
                     <div className="flex flex-col gap-2 mt-4 items-end">
                         {quote.status === QuoteStatus.Sent && (
-                            <button 
-                                onClick={handleAccept}
-                                disabled={isAccepting}
-                                className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2"
-                            >
-                                {isAccepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                Accept Quote
-                            </button>
+                            isConfirming ? (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setIsConfirming(false)}
+                                        className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => onAccept(quote).finally(() => setIsConfirming(false))}
+                                        disabled={isAccepting}
+                                        className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2"
+                                    >
+                                        {isAccepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                        Confirm Acceptance
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setIsConfirming(true)}
+                                    className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2"
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    Accept Quote
+                                </button>
+                            )
                         )}
                         {quote.pdfUrl && (
                             <a href={quote.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline inline-block">

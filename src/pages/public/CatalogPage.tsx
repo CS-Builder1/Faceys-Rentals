@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { inventoryService } from '../../services/inventoryService'
 import { InventoryItem } from '../../types'
 import { useQuote } from '../../contexts/QuoteContext'
 import QuickViewModal from '../../components/public/QuickViewModal'
+import { getPublicDataErrorMessage, isFirestorePermissionDenied } from '../../utils/firestoreErrors'
 
 const categoryEmojis: Record<string, string> = {
     'All': '🌈',
@@ -31,6 +33,7 @@ export default function CatalogPage() {
     const [products, setProducts] = useState<InventoryItem[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [hasPermissionError, setHasPermissionError] = useState(false)
     const { addToCart } = useQuote()
 
     const openQuickView = (item: InventoryItem) => {
@@ -44,7 +47,8 @@ export default function CatalogPage() {
                 const items = await inventoryService.getAll()
                 setProducts(items.filter(item => item.status === 'active'))
             } catch (err: any) {
-                setError('Failed to load catalog. Please try again later.')
+                setHasPermissionError(isFirestorePermissionDenied(err))
+                setError(getPublicDataErrorMessage('catalog', err))
                 console.error(err)
             } finally {
                 setLoading(false)
@@ -119,7 +123,19 @@ export default function CatalogPage() {
                 </div>
 
                 {error && (
-                    <div className="p-4 bg-red-100 text-red-600 rounded-xl font-bold">{error}</div>
+                    <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
+                        <p className="font-bold">{error}</p>
+                        {hasPermissionError && (
+                            <div className="mt-4">
+                                <Link
+                                    to="/request-quote"
+                                    className="inline-flex items-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
+                                >
+                                    Continue With a Quote Request
+                                </Link>
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {loading ? (

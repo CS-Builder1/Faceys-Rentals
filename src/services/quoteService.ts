@@ -37,6 +37,7 @@ function fromFirestore(id: string, data: DocumentData): Quote {
         customerName: data.customerName,
         customerEmail: data.customerEmail,
         customerPhone: data.customerPhone,
+        company: data.company,
         eventDate: data.eventDate,
         eventType: data.eventType,
         guestCount: data.guestCount,
@@ -65,9 +66,11 @@ export const quoteService = {
     },
 
     async getByStatus(status: QuoteStatus): Promise<Quote[]> {
-        const q = query(ref, where('status', '==', status), orderBy('createdAt', 'desc'))
+        const q = query(ref, where('status', '==', status))
         const snap = await getDocs(q)
-        return snap.docs.map((d) => fromFirestore(d.id, d.data()))
+        return snap.docs
+            .map((d) => fromFirestore(d.id, d.data()))
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     },
 
     async getByEvent(eventId: string): Promise<Quote[]> {
@@ -77,9 +80,19 @@ export const quoteService = {
     },
 
     async getByClient(clientId: string): Promise<Quote[]> {
-        const q = query(ref, where('clientId', '==', clientId), orderBy('createdAt', 'desc'))
+        const q = query(ref, where('clientId', '==', clientId))
         const snap = await getDocs(q)
-        return snap.docs.map((d) => fromFirestore(d.id, d.data()))
+        return snap.docs
+            .map((d) => fromFirestore(d.id, d.data()))
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    },
+
+    async getByCustomerEmail(email: string): Promise<Quote[]> {
+        const q = query(ref, where('customerEmail', '==', email))
+        const snap = await getDocs(q)
+        return snap.docs
+            .map((d) => fromFirestore(d.id, d.data()))
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     },
 
     async getById(id: string): Promise<Quote | null> {

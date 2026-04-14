@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { QuoteStatus } from '../../types'
 import { useQuote } from '../../contexts/QuoteContext'
 import { quoteService } from '../../services/quoteService'
-import { clientService } from '../../services/clientService'
 
 const quickItems = [
     { label: 'Tents', icon: 'celebration' },
@@ -67,42 +66,20 @@ export default function RequestQuotePage() {
         setSubmitError('')
 
         try {
-            let linkedClientId: string | undefined
-
-            // Resolve/Create client first so quote can be linked end-to-end
-            if (formData.email) {
-                const existingClients = await clientService.getByEmail(formData.email)
-                if (existingClients.length > 0) {
-                    linkedClientId = existingClients[0].id
-                } else {
-                    const newClientId = await clientService.create({
-                        contactName: formData.name,
-                        businessName: '',
-                        email: formData.email,
-                        phone: formData.phone || '',
-                        billingAddress: '',
-                        billingCity: '',
-                        billingState: '',
-                        billingZip: '',
-                        status: 'lead',
-                        notes: `Automatically created as Lead from quote request on ${new Date().toLocaleDateString()}`,
-                        createdAt: new Date(),
-                        lifetimeValue: 0
-                    } as any)
-                    linkedClientId = newClientId
-                }
-            }
-
             // Include quick items in the details if selected
             let finalDetails = formData.details
+            if (formData.company) {
+                finalDetails += `${finalDetails ? '\n\n' : ''}Organization: ${formData.company}`
+            }
             if (selectedItems.length > 0) {
-                finalDetails += `\n\nInterested in: ${selectedItems.join(', ')}`
+                finalDetails += `${finalDetails ? '\n\n' : ''}Interested in: ${selectedItems.join(', ')}`
             }
 
             await quoteService.create({
                 customerName: formData.name,
                 customerEmail: formData.email,
                 customerPhone: formData.phone,
+                company: formData.company,
                 eventDate: formData.eventDate,
                 eventType: formData.eventType,
                 guestCount: parseInt(formData.guestCount) || 0,
@@ -118,7 +95,6 @@ export default function RequestQuotePage() {
                 notes: finalDetails,
                 // Defaults for Quote interface
                 eventId: '',
-                clientId: linkedClientId,
                 tax: 0,
                 discount: 0,
                 depositRequired: 0,

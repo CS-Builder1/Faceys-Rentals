@@ -25,16 +25,48 @@ service cloud.firestore {
     function isSelf(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    function isSelfByEmail(email) {
+      return isSignedIn()
+        && email is string
+        && request.auth.token.email is string
+        && request.auth.token.email == email;
+    }
+    function canReadBookingById(bookingId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/bookings/$(bookingId))
+        && (
+          get(/databases/$(database)/documents/bookings/$(bookingId)).data.clientId == request.auth.uid
+          || isSelfByEmail(get(/databases/$(database)/documents/bookings/$(bookingId)).data.clientEmail)
+        );
+    }
+    function canReadInvoiceById(invoiceId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/invoices/$(invoiceId))
+        && canReadBookingById(get(/databases/$(database)/documents/invoices/$(invoiceId)).data.eventId);
+    }
 
     // --- 2. Schema Validation Helpers ---
     
-    // Validate Booking Structure to ensure Data Integrity
     function isValidBooking() {
       let data = request.resource.data;
-      return data.keys().hasAll(['clientId', 'status', 'eventDate', 'items', 'total'])
+      return data.keys().hasAll(['clientId', 'status', 'eventDate'])
         && data.status in ['inquiry', 'quoted', 'confirmed', 'completed', 'cancelled']
-        && data.total is number
-        && data.items is list;
+        && (!data.keys().hasAny(['startTime']) || data.startTime is string)
+        && (!data.keys().hasAny(['endTime']) || data.endTime is string)
+        && (!data.keys().hasAny(['venueAddress']) || data.venueAddress is string)
+        && (!data.keys().hasAny(['eventType']) || data.eventType in ['rental', 'catering', 'both'])
+        && (!data.keys().hasAny(['deliveryStatus']) || data.deliveryStatus in ['scheduled', 'out_for_delivery', 'delivered', 'pickup', 'returned'])
+        && (!data.keys().hasAny(['assignedStaffIds']) || data.assignedStaffIds is list)
+        && (!data.keys().hasAny(['internalNotes']) || data.internalNotes is string)
+        && (!data.keys().hasAny(['clientName']) || data.clientName is string)
+        && (!data.keys().hasAny(['clientEmail']) || data.clientEmail is string)
+        && (!data.keys().hasAny(['sourceQuoteId']) || data.sourceQuoteId is string);
+    }
+    function clientCanAcceptQuote() {
+      return isSelfByEmail(resource.data.customerEmail)
+        && request.resource.data.customerEmail == resource.data.customerEmail
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status']);
     }
 
     // --- 3. Collection Rules ---
@@ -50,9 +82,14 @@ service cloud.firestore {
 
     // CUSTOMERS: Staff/Admin manage; Customers read/update self
     match /customers/{customerId} {
-      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && resource.data.id == request.auth.uid);
-      allow create: if isStaff() || isAdmin() || (isSignedIn() && request.resource.data.id == request.auth.uid);
-      allow update: if isStaff() || isAdmin() || (isSignedIn() && resource.data.id == request.auth.uid && request.resource.data.id == resource.data.id);
+      allow read: if isStaff() || isAdmin() || isAccountant() || isSelf(customerId) || (resource.data.id == request.auth.uid) || isSelfByEmail(resource.data.email);
+      allow create: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && ((request.resource.data.id == request.auth.uid) || isSelfByEmail(request.resource.data.email)));
+      allow update: if isStaff() || isAdmin() || isAccountant() || (
+        isSignedIn()
+        && ((resource.data.id == request.auth.uid) || isSelf(customerId) || isSelfByEmail(resource.data.email))
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.email == resource.data.email
+      );
       allow delete: if isAdmin();
     }
 
@@ -71,42 +108,27 @@ service cloud.firestore {
 
     // BOOKINGS: The Core Logic
     match /bookings/{bookingId} {
-      // READ: Owner or Staff/Admin/Accountant
-      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && resource.data.clientId == request.auth.uid);
-      
-      // CREATE: Staff/Admin (Public uses booking_requests)
-      allow create: if (isStaff() || isAdmin()) && isValidBooking();
-
-      // UPDATE:
-      // 1. Admin can do anything (including overrides).
-      // 2. Staff can update if they are NOT enabling an override.
-      // 3. Client can only update specific fields if Status is DRAFT (optional, handled by booking_requests usually)
-      allow update: if isAdmin() || (
-        isStaff() 
-        && isValidBooking()
-        // Prevent Staff from toggling the adminOverride active flag
-        && (
-           !request.resource.data.adminOverride.isActive 
-           || request.resource.data.adminOverride.isActive == resource.data.adminOverride.isActive
-        )
-      );
+      allow read: if isStaff() || isAdmin() || isAccountant() || isSelf(resource.data.clientId) || isSelfByEmail(resource.data.clientEmail);
+      allow create: if (isStaff() || isAdmin() || isAccountant()) && isValidBooking();
+      allow update: if (isStaff() || isAdmin() || isAccountant()) && isValidBooking();
     }
 
     // BOOKING REQUESTS: Public Write
     match /booking_requests/{requestId} {
       allow create: if true;
-      allow read, update: if isStaff() || isAdmin() || isAccountant();
+      allow read: if isStaff() || isAdmin() || isAccountant() || isSelf(resource.data.clientId) || isSelfByEmail(resource.data.customerEmail);
+      allow update: if isStaff() || isAdmin() || isAccountant() || clientCanAcceptQuote();
     }
 
     // INVOICES: Admin/Staff Manage, Client Read Only
     match /invoices/{invoiceId} {
-      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && get(/databases/$(database)/documents/bookings/$(resource.data.eventId)).data.clientId == request.auth.uid);
+      allow read: if isStaff() || isAdmin() || isAccountant() || canReadBookingById(resource.data.eventId);
       allow write: if isAdmin() || isAccountant();
     }
 
     // PAYMENTS: Webhooks create, Admin manage
     match /payments/{paymentId} {
-      allow read: if isStaff() || isAdmin() || isAccountant() || (isSignedIn() && get(/databases/$(database)/documents/bookings/$(get(/databases/$(database)/documents/invoices/$(resource.data.invoiceId)).data.eventId)).data.clientId == request.auth.uid);
+      allow read: if isStaff() || isAdmin() || isAccountant() || canReadInvoiceById(resource.data.invoiceId);
       allow create: if true; // Webhooks or Client Portal
       allow update, delete: if isAdmin() || isAccountant();
     }

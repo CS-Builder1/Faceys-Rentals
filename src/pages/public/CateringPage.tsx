@@ -4,6 +4,7 @@ import Testimonials from '../../components/public/Testimonials'
 import { inventoryService } from '../../services/inventoryService'
 import { InventoryItem } from '../../types'
 import { useQuote } from '../../contexts/QuoteContext'
+import { getPublicDataErrorMessage, isFirestorePermissionDenied } from '../../utils/firestoreErrors'
 
 const inclusions = [
     { title: 'Chef & Service Staff', desc: 'Professional culinary team and attentive servers for your entire event.', icon: 'groups' },
@@ -34,6 +35,7 @@ export default function CateringPage() {
     const [packages, setPackages] = useState<InventoryItem[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [hasPermissionError, setHasPermissionError] = useState(false)
     const { addToCart } = useQuote()
 
     useEffect(() => {
@@ -46,7 +48,8 @@ export default function CateringPage() {
                 )
                 setPackages(cateringItems)
             } catch (err: any) {
-                setError('Failed to load catering options. Please try again later.')
+                setHasPermissionError(isFirestorePermissionDenied(err))
+                setError(getPublicDataErrorMessage('catering options', err))
                 console.error(err)
             } finally {
                 setLoading(false)
@@ -82,7 +85,19 @@ export default function CateringPage() {
                     </div>
 
                     {error && (
-                        <div className="p-4 bg-red-100 text-red-600 rounded-xl font-bold max-w-2xl mx-auto text-center">{error}</div>
+                        <div className="max-w-2xl mx-auto rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-red-700">
+                            <p className="font-bold">{error}</p>
+                            {hasPermissionError && (
+                                <div className="mt-4">
+                                    <Link
+                                        to="/request-quote"
+                                        className="inline-flex items-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
+                                    >
+                                        Request Catering Assistance
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {loading ? (

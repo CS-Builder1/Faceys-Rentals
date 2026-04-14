@@ -148,6 +148,9 @@ export interface InventoryItem {
 export interface Event {
     id: string;
     clientId: string;
+    clientName?: string;
+    clientEmail?: string;
+    sourceQuoteId?: string;
     eventDate: Date;
     startTime: string;
     endTime: string;
@@ -187,6 +190,7 @@ export interface Quote {
     customerName?: string;
     customerEmail?: string;
     customerPhone?: string;
+    company?: string;
     eventDate?: string;
     eventType?: string;
     guestCount?: number;

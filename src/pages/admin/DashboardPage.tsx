@@ -41,6 +41,7 @@ export default function DashboardPage() {
     const [quotes, setQuotes] = useState<Quote[]>([])
     const [events, setEvents] = useState<Event[]>([])
     const [invoices, setInvoices] = useState<Invoice[]>([])
+    const [isActivityOpen, setIsActivityOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
@@ -152,6 +153,21 @@ export default function DashboardPage() {
         }))
     ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 3)
 
+    const fullActivityFeed = [
+        ...quotes.map(q => ({
+            id: `q-${q.id}`,
+            date: new Date(q.createdAt),
+            title: `New quote request from ${q.customerName || 'Online Client'}`,
+            color: 'bg-primary'
+        })),
+        ...invoices.filter(i => i.status === InvoiceStatus.Paid).map(i => ({
+            id: `i-${i.id}`,
+            date: new Date(i.createdAt),
+            title: `Invoice #${i.invoiceNumber || i.id.substring(0, 8)} marked as PAID`,
+            color: 'bg-emerald-500'
+        }))
+    ].sort((a, b) => b.date.getTime() - a.date.getTime())
+
     const conversionData = [
         { name: 'Pending', value: quotes.filter(q => q.status === QuoteStatus.Pending).length, fill: '#8B0000' },
         { name: 'Sent', value: quotes.filter(q => q.status === QuoteStatus.Sent).length, fill: '#EAB308' },
@@ -172,6 +188,32 @@ export default function DashboardPage() {
         
     const COLORS = ['#8B0000', '#2E4053', '#B22222', '#1E293B', '#708090', '#A52A2A']
 
+    const handleExportDashboard = () => {
+        const snapshot = {
+            generatedAt: new Date().toISOString(),
+            summary: {
+                newRequests,
+                revenueMTD,
+                upcomingEvents,
+                unpaidInvoicesCount,
+                unpaidInvoicesTotal,
+            },
+            quotes,
+            events,
+            invoices,
+        }
+
+        const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `dashboard-export-${format(new Date(), 'yyyy-MM-dd')}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+    }
+
     return (
         <div className="p-8 md:p-12 space-y-12 animate-in fade-in duration-700">
             {/* Header */}
@@ -181,7 +223,10 @@ export default function DashboardPage() {
                     <p className="text-slate-500 font-medium">Welcome back, Patrick. Here's what's happening today.</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold flex items-center gap-2 hover:border-primary transition-all shadow-sm">
+                    <button
+                        onClick={handleExportDashboard}
+                        className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold flex items-center gap-2 hover:border-primary transition-all shadow-sm"
+                    >
                         <span className="material-symbols-outlined text-sm">download</span>
                         Export Data
                     </button>
@@ -450,7 +495,10 @@ export default function DashboardPage() {
                                 ))
                             )}
                         </div>
-                        <button className="w-full py-4 border border-slate-200 dark:border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:border-primary hover:text-primary transition-all">
+                        <button
+                            onClick={() => setIsActivityOpen(true)}
+                            className="w-full py-4 border border-slate-200 dark:border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:border-primary hover:text-primary transition-all"
+                        >
                             View Activity Log
                         </button>
                     </div>
@@ -490,6 +538,43 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {isActivityOpen && (
+                <div className="fixed inset-0 z-50 bg-ocean-deep/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden">
+                        <div className="px-8 py-6 border-b border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-slate-800/50 flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-primary">Activity Log</p>
+                                <h3 className="text-2xl font-black text-ocean-deep dark:text-white mt-1">Recent revenue and quote activity</h3>
+                            </div>
+                            <button
+                                onClick={() => setIsActivityOpen(false)}
+                                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <div className="p-8 max-h-[70vh] overflow-y-auto space-y-5">
+                            {fullActivityFeed.length === 0 ? (
+                                <p className="text-sm text-slate-500">No activity has been logged yet.</p>
+                            ) : (
+                                fullActivityFeed.map((activity) => (
+                                    <div key={activity.id} className="flex gap-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-5">
+                                        <div className={`size-3 rounded-full mt-1.5 shrink-0 ${activity.color}`} />
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-semibold text-slate-700 dark:text-white/80">{activity.title}</p>
+                                            <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                                                {format(activity.date, 'MMM dd, yyyy h:mm a')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

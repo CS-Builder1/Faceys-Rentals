@@ -66,6 +66,56 @@ export default function HomePage() {
                 </div>
             </section>
 
+            <section id="about" className="py-24 bg-white dark:bg-background-dark">
+                <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-[1.1fr_0.9fr] gap-10 items-center">
+                    <div className="space-y-5">
+                        <p className="text-xs font-black uppercase tracking-[0.35em] text-primary">About Facey&apos;s</p>
+                        <h2 className="text-4xl font-extrabold text-ocean-deep dark:text-white">
+                            Seamless rentals, polished catering, and calm event execution.
+                        </h2>
+                        <p className="text-slate-500 text-lg leading-relaxed">
+                            {content?.aboutUsText}
+                        </p>
+                        <div className="flex flex-wrap gap-4">
+                            <Link
+                                to="/request-quote"
+                                className="px-7 py-3 bg-ocean-deep text-white rounded-full font-bold hover:bg-primary transition-colors"
+                            >
+                                Start Your Event Plan
+                            </Link>
+                            <Link
+                                to="/catalog"
+                                className="px-7 py-3 border border-slate-300 text-ocean-deep dark:text-white dark:border-white/20 rounded-full font-bold hover:border-primary hover:text-primary transition-colors"
+                            >
+                                Explore Inventory
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-primary/10 rounded-[2.5rem] blur-3xl" />
+                        <div className="relative bg-sand-warm/40 dark:bg-white/5 border border-primary/10 rounded-[2.5rem] p-8 md:p-10 shadow-xl space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="rounded-2xl bg-white dark:bg-background-dark p-5 border border-slate-200 dark:border-white/10">
+                                    <p className="text-3xl font-black text-ocean-deep dark:text-white">500+</p>
+                                    <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mt-1">Events Supported</p>
+                                </div>
+                                <div className="rounded-2xl bg-white dark:bg-background-dark p-5 border border-slate-200 dark:border-white/10">
+                                    <p className="text-3xl font-black text-ocean-deep dark:text-white">24h</p>
+                                    <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mt-1">Typical Quote Response</p>
+                                </div>
+                            </div>
+                            <div className="rounded-2xl bg-ocean-deep text-white p-6">
+                                <p className="text-xs font-black uppercase tracking-[0.3em] text-white/60">What Clients Need Most</p>
+                                <p className="text-lg font-semibold mt-3 text-white/85">
+                                    Clear communication, dependable setup timelines, and a team that keeps the event day feeling under control.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* Services Section */}
             <section className="py-24 bg-sand-warm/30 dark:bg-background-dark/50">
                 <div className="max-w-7xl mx-auto px-6">
