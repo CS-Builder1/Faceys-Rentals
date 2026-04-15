@@ -7,12 +7,53 @@
    ============================================= */
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased;
+    overflow-x: hidden;
   }
 }
 
 @layer components {
+  .page-shell {
+    @apply px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-12;
+  }
+
+  .page-stack {
+    @apply space-y-8 lg:space-y-10;
+  }
+
+  .panel-card {
+    @apply rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5;
+  }
+
+  .panel-card-strong {
+    @apply rounded-[2rem] border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-white/5;
+  }
+
+  .page-header {
+    @apply flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between;
+  }
+
+  .data-table-shell {
+    @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0;
+  }
+
+  .data-table {
+    @apply min-w-[720px] w-full text-left;
+  }
+
+  .data-table th {
+    @apply px-4 py-4 sm:px-6 sm:py-5;
+  }
+
+  .data-table td {
+    @apply px-4 py-4 sm:px-6 sm:py-5;
+  }
+
   .glass-card {
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(12px);
@@ -47,6 +88,15 @@
 
   .form-input-focus {
     @apply focus:border-primary focus:ring-primary outline-none;
+  }
+}
+
+@media (max-width: 640px) {
+  @layer components {
+    .panel-card,
+    .panel-card-strong {
+      border-radius: 1.5rem;
+    }
   }
 }
 

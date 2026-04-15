@@ -242,19 +242,19 @@ export default function InvoicesPage() {
     }
 
     return (
-        <div className="p-8 md:p-12 space-y-12">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="page-shell page-stack">
+            <div className="page-header">
                 <div>
                     <h2 className="text-3xl font-black text-ocean-deep dark:text-white">Manage <span className="text-primary tracking-widest uppercase text-2xl">Invoices</span></h2>
                     <p className="text-slate-500 font-medium">Track payments and manage outstanding balances.</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                     <button 
                         onClick={() => {
                             resetForm()
                             setIsCreateModalOpen(true)
                         }}
-                        className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-all flex items-center gap-2"
+                        className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow-xl shadow-primary/30 transition-all hover:scale-105"
                     >
                         <Plus className="w-4 h-4" />
                         Create Invoice
@@ -263,50 +263,50 @@ export default function InvoicesPage() {
             </div>
 
             {/* Invoices Table */}
-            <div className="bg-white dark:bg-white/5 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+            <div className="panel-card-strong overflow-hidden">
+                <div className="data-table-shell">
+                    <table className="data-table">
                         <thead className="bg-slate-50 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                             <tr>
-                                <th className="px-8 py-5">Invoice #</th>
-                                <th className="px-8 py-5">Issue Date</th>
-                                <th className="px-8 py-5">Due Date</th>
-                                <th className="px-8 py-5">Amount</th>
-                                <th className="px-8 py-5">Balance Due</th>
-                                <th className="px-8 py-5">Status</th>
-                                <th className="px-8 py-5 text-right">Action</th>
+                                <th>Invoice #</th>
+                                <th>Issue Date</th>
+                                <th>Due Date</th>
+                                <th>Amount</th>
+                                <th>Balance Due</th>
+                                <th>Status</th>
+                                <th className="text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={7} className="px-8 py-6 text-center text-slate-500">Loading invoices...</td>
+                                    <td colSpan={7} className="text-center text-slate-500">Loading invoices...</td>
                                 </tr>
                             ) : invoices.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-8 py-6 text-center text-slate-500">No invoices found.</td>
+                                    <td colSpan={7} className="text-center text-slate-500">No invoices found.</td>
                                 </tr>
                             ) : (
                                 invoices.map(invoice => (
                                     <tr key={invoice.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
-                                        <td className="px-8 py-6">
+                                        <td>
                                             <span className="text-sm font-black text-ocean-deep dark:text-white uppercase tracking-widest">{invoice.invoiceNumber || invoice.id.substring(0, 8)}</span>
                                         </td>
-                                        <td className="px-8 py-6 text-sm font-medium text-slate-600 dark:text-white/70">
+                                        <td className="text-sm font-medium text-slate-600 dark:text-white/70">
                                             {format(new Date(invoice.createdAt), 'MMM dd, yyyy')}
                                         </td>
-                                        <td className="px-8 py-6 text-sm font-bold text-slate-700 dark:text-white">
+                                        <td className="text-sm font-bold text-slate-700 dark:text-white">
                                             {format(new Date(invoice.dueDate), 'MMM dd, yyyy')}
                                         </td>
-                                        <td className="px-8 py-6">
+                                        <td>
                                             <span className="text-sm font-medium text-slate-600 dark:text-white/70">${invoice.total.toFixed(2)}</span>
                                         </td>
-                                        <td className="px-8 py-6">
+                                        <td>
                                             <span className={`text-sm font-bold ${invoice.balanceDue > 0 ? 'text-primary' : 'text-emerald-500'}`}>
                                                 ${invoice.balanceDue.toFixed(2)}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-6">
+                                        <td>
                                             <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                                                     invoice.status === InvoiceStatus.Paid ? 'bg-emerald-100 text-emerald-700' :
                                                     invoice.status === InvoiceStatus.Overdue ? 'bg-red-100 text-red-700' :
@@ -316,7 +316,7 @@ export default function InvoicesPage() {
                                                 {invoice.status}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-6 text-right space-x-2">
+                                        <td className="text-right space-x-2">
                                             <button 
                                                 onClick={() => setSelectedInvoice(invoice)}
                                                 className="px-4 py-2 bg-slate-100 text-ocean-deep hover:bg-ocean-deep hover:text-white rounded-lg text-xs font-bold transition-colors"
@@ -335,8 +335,8 @@ export default function InvoicesPage() {
             {/* View Invoice Modal */}
             {selectedInvoice && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ocean-deep/80 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-                        <div className="px-8 py-6 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl dark:bg-slate-900">
+                        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-5 dark:border-white/5 dark:bg-slate-800/50 sm:px-8 sm:py-6">
                             <div>
                                 <h3 className="text-xl font-black text-ocean-deep dark:text-white">{selectedInvoice.invoiceNumber}</h3>
                                 <p className="text-sm text-slate-500 font-medium mt-1">Due: {format(new Date(selectedInvoice.dueDate), 'MMM dd, yyyy')}</p>
@@ -348,7 +348,7 @@ export default function InvoicesPage() {
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="p-8 overflow-y-auto flex-1 space-y-6">
+                        <div className="flex-1 space-y-6 overflow-y-auto p-5 sm:p-8">
                             <div className="space-y-4">
                                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Line Items</h4>
                                 <div className="space-y-3">
@@ -384,7 +384,7 @@ export default function InvoicesPage() {
                             </div>
                         </div>
 
-                        <div className="px-8 py-5 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800/50 flex gap-3 justify-end items-center">
+                        <div className="flex justify-end border-t border-slate-100 bg-slate-50 px-5 py-5 dark:border-white/5 dark:bg-slate-800/50 sm:px-8">
                             {selectedInvoice.status !== InvoiceStatus.Paid && (
                                 <button 
                                     onClick={() => handleMarkAsPaid(selectedInvoice)}
@@ -403,8 +403,8 @@ export default function InvoicesPage() {
             {/* Create Invoice Modal */}
             {isCreateModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ocean-deep/80 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-                        <div className="px-8 py-6 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl dark:bg-slate-900">
+                        <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-slate-50 px-5 py-5 dark:border-white/5 dark:bg-slate-800/50 sm:px-8 sm:py-6">
                             <div>
                                 <h3 className="text-xl font-black text-ocean-deep dark:text-white">Create Invoice</h3>
                                 <p className="text-sm text-slate-500 font-medium mt-1">
@@ -419,9 +419,9 @@ export default function InvoicesPage() {
                             </button>
                         </div>
                         
-                        <form onSubmit={handleCreateInvoice} className="p-8 overflow-y-auto flex-1 space-y-8">
+                        <form onSubmit={handleCreateInvoice} className="flex-1 space-y-6 overflow-y-auto p-5 sm:space-y-8 sm:p-8">
                             {sourceQuote && (
-                                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex flex-col justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 md:flex-row md:items-center">
                                     <div>
                                         <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Linked Quote</p>
                                         <p className="text-sm font-bold text-emerald-900 mt-1">
@@ -438,7 +438,7 @@ export default function InvoicesPage() {
                                 </div>
                             )}
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                                         {sourceQuote ? 'Existing Booking ID (Optional)' : 'Event Reference'}
@@ -464,7 +464,7 @@ export default function InvoicesPage() {
                             </div>
 
                             <div className="space-y-4">
-                                <div className="flex justify-between items-center">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Line Items</h4>
                                     <button 
                                         type="button"

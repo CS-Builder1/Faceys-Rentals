@@ -120,9 +120,9 @@ export default function InventoryItemModal({ isOpen, onClose, onSave, existingIt
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ocean-deep/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10">
-                <div className="sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-6 border-b border-slate-100 dark:border-white/10 flex justify-between items-center z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-deep/50 p-4 backdrop-blur-sm">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-100 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/80 p-5 backdrop-blur-md dark:border-white/10 dark:bg-slate-900/80 sm:p-6">
                     <h2 className="text-xl font-black text-ocean-deep dark:text-white">
                         {existingItem ? 'Edit Item' : 'Create New Listing'}
                     </h2>
@@ -131,7 +131,7 @@ export default function InventoryItemModal({ isOpen, onClose, onSave, existingIt
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6 p-5 sm:p-6">
                     
                     {/* Image Upload Area */}
                     <div className="space-y-4">
@@ -139,7 +139,7 @@ export default function InventoryItemModal({ isOpen, onClose, onSave, existingIt
                         
                         {/* Image Preview Grid */}
                         {formData.images.length > 0 && (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                                 {formData.images.map((url, idx) => (
                                     <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 group">
                                         <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
@@ -283,18 +283,18 @@ export default function InventoryItemModal({ isOpen, onClose, onSave, existingIt
                         </div>
                     </div>
 
-                    <div className="pt-6 border-t border-slate-100 dark:border-white/10 flex justify-end gap-4">
+                    <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 dark:border-white/10 sm:flex-row sm:justify-end sm:gap-4">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-6 py-3 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                            className="rounded-xl px-6 py-3 text-sm font-bold text-slate-500 transition-colors hover:bg-slate-100"
                             disabled={isSubmitting || isUploading}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
+                            className="rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow-xl shadow-primary/30 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
                             disabled={isSubmitting || isUploading}
                         >
                             {isSubmitting ? 'Saving...' : 'Save Item'}

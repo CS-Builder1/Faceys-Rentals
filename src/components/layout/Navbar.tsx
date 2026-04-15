@@ -27,6 +27,18 @@ export default function Navbar() {
         setIsUserMenuOpen(false)
     }, [location.pathname, location.hash])
 
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow
+
+        if (isMobileMenuOpen) {
+            document.body.style.overflow = 'hidden'
+        }
+
+        return () => {
+            document.body.style.overflow = previousOverflow
+        }
+    }, [isMobileMenuOpen])
+
     const userRole = userProfile?.role?.toUpperCase()
     const canAccessAdmin = userRole && ['ADMIN', 'MARKETING', 'ACCOUNTANT', 'OWNER'].includes(userRole)
     const isStaff = userRole === 'STAFF'
@@ -45,16 +57,21 @@ export default function Navbar() {
     }
 
     return (
-        <header className="fixed top-0 w-full z-50 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-primary/10">
-            <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-                <Link to="/" className="flex items-center gap-3">
-                    <div className="size-10 bg-primary rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary/20">
+        <header className="fixed top-0 w-full z-50 border-b border-primary/10 bg-white/85 shadow-sm shadow-slate-900/5 backdrop-blur-md dark:bg-background-dark/85">
+            <div className="max-w-7xl mx-auto flex h-16 items-center justify-between gap-4 px-4 sm:h-20 sm:px-6">
+                <Link to="/" className="flex min-w-0 items-center gap-3">
+                    <div className="size-9 bg-primary rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary/20 sm:size-10">
                         <span className="material-symbols-outlined font-bold">celebration</span>
                     </div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-ocean-deep dark:text-white">Facey&apos;s</h1>
+                    <div className="min-w-0">
+                        <h1 className="truncate text-xl font-extrabold tracking-tight text-ocean-deep dark:text-white sm:text-2xl">Facey&apos;s</h1>
+                        <p className="hidden text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400 sm:block">
+                            Events and Catering
+                        </p>
+                    </div>
                 </Link>
 
-                <nav className="hidden md:flex items-center gap-8">
+                <nav className="hidden md:flex items-center gap-6 lg:gap-8">
                     {navItems.map((item) => (
                         <NavLink
                             key={item.to}
@@ -69,10 +86,10 @@ export default function Navbar() {
                     ))}
                 </nav>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
                     <Link
                         to="/request-quote"
-                        className="hidden lg:flex px-5 py-2.5 bg-primary text-white rounded-full text-sm font-bold shadow-lg shadow-primary/30 hover:scale-105 transition-transform"
+                        className="hidden md:flex rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-transform hover:scale-105 lg:px-5"
                     >
                         Request a Quote
                     </Link>
@@ -84,7 +101,7 @@ export default function Navbar() {
                     >
                         <span className="material-symbols-outlined">shopping_cart</span>
                         {cartTotalCount > 0 && (
-                            <span className="absolute top-0 right-0 size-5 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
+                            <span className="absolute right-0 top-0 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white shadow-lg animate-in zoom-in duration-300">
                                 {cartTotalCount}
                             </span>
                         )}
@@ -157,7 +174,7 @@ export default function Navbar() {
 
                     <button
                         onClick={() => setIsMobileMenuOpen((open) => !open)}
-                        className="md:hidden p-2 text-ocean-deep dark:text-white"
+                        className="rounded-full bg-slate-100 p-2 text-ocean-deep transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 md:hidden"
                         aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
                     >
                         <span className="material-symbols-outlined">{isMobileMenuOpen ? 'close' : 'menu'}</span>
@@ -166,8 +183,18 @@ export default function Navbar() {
             </div>
 
             {isMobileMenuOpen && (
-                <div className="md:hidden border-t border-primary/10 bg-white dark:bg-background-dark shadow-2xl">
-                    <div className="px-6 py-5 space-y-4">
+                <>
+                    <button
+                        type="button"
+                        aria-label="Close navigation menu"
+                        className="fixed inset-0 top-16 z-[-1] bg-slate-900/20 md:hidden sm:top-20"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                    />
+                    <div className="md:hidden border-t border-primary/10 bg-white dark:bg-background-dark shadow-2xl">
+                        <div className="px-4 py-4 sm:px-6 sm:py-5 space-y-4 max-h-[calc(100dvh-4rem)] overflow-y-auto sm:max-h-[calc(100dvh-5rem)]">
+                            <div className="rounded-2xl border border-primary/10 bg-sand-warm/30 p-4 text-sm text-slate-600 dark:bg-white/5 dark:text-white/70">
+                                Browse rentals, explore catering, or send us your quote request from any device.
+                            </div>
                         <nav className="flex flex-col gap-2">
                             {navItems.map((item) => (
                                 <NavLink
@@ -183,7 +210,7 @@ export default function Navbar() {
                             ))}
                             <Link
                                 to="/request-quote"
-                                className="px-4 py-3 rounded-2xl font-bold bg-ocean-deep text-white"
+                                className="px-4 py-3 rounded-2xl font-bold bg-ocean-deep text-white shadow-lg shadow-ocean-deep/20"
                             >
                                 Request a Quote
                             </Link>
@@ -228,7 +255,8 @@ export default function Navbar() {
                             )}
                         </div>
                     </div>
-                </div>
+                    </div>
+                </>
             )}
 
             <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />

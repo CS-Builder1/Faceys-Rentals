@@ -6,23 +6,20 @@ import { useQuote } from '../../contexts/QuoteContext'
 import QuickViewModal from '../../components/public/QuickViewModal'
 import { getPublicDataErrorMessage, isFirestorePermissionDenied } from '../../utils/firestoreErrors'
 
-const categoryEmojis: Record<string, string> = {
-    'All': '🌈',
-    'tent': '🎪',
-    'table': '🍽️',
-    'chair': '🪑',
-    'linen': '🧺',
-    'catering_equipment': '👨‍🍳',
-    'decoration': '✨',
-    'lighting': '💡',
-    'backdrop': '🖼️',
-    'other': '📦'
+const categoryIcons: Record<string, string> = {
+    All: 'apps',
+    tent: 'festival',
+    table: 'table_restaurant',
+    chair: 'chair',
+    linen: 'layers',
+    catering_equipment: 'restaurant',
+    decoration: 'auto_awesome',
+    lighting: 'lightbulb',
+    backdrop: 'gallery_thumbnail',
+    other: 'inventory_2',
 }
 
-// Convert ItemCategory values to display names
-const formatCategory = (cat: string) => {
-    return cat.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
+const formatCategory = (cat: string) => cat.replace('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 
 export default function CatalogPage() {
     const [activeFilter, setActiveFilter] = useState('All')
@@ -36,16 +33,11 @@ export default function CatalogPage() {
     const [hasPermissionError, setHasPermissionError] = useState(false)
     const { addToCart } = useQuote()
 
-    const openQuickView = (item: InventoryItem) => {
-        setSelectedItem(item)
-        setIsModalOpen(true)
-    }
-
     useEffect(() => {
         const fetchInventory = async () => {
             try {
                 const items = await inventoryService.getAll()
-                setProducts(items.filter(item => item.status === 'active'))
+                setProducts(items.filter((item) => item.status === 'active'))
             } catch (err: any) {
                 setHasPermissionError(isFirestorePermissionDenied(err))
                 setError(getPublicDataErrorMessage('catalog', err))
@@ -54,64 +46,77 @@ export default function CatalogPage() {
                 setLoading(false)
             }
         }
-        fetchInventory()
+
+        void fetchInventory()
     }, [])
 
-    // Derive active categories from the items we actually have
-    const uniqueCategories = Array.from(new Set(products.map(p => p.category)))
+    const openQuickView = (item: InventoryItem) => {
+        setSelectedItem(item)
+        setIsModalOpen(true)
+    }
+
+    const uniqueCategories = Array.from(new Set(products.map((product) => product.category)))
     const filterOptions = ['All', ...uniqueCategories]
 
-    // Category counts mapping
-    const categoryCounts = products.reduce((acc, p) => {
-        acc[p.category] = (acc[p.category] || 0) + 1
+    const categoryCounts = products.reduce((acc, product) => {
+        acc[product.category] = (acc[product.category] || 0) + 1
         return acc
     }, {} as Record<string, number>)
 
-    const filtered = products
-        .filter(p => {
-            const matchesFilter = activeFilter === 'All' || p.category === activeFilter
-            const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                p.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredProducts = products
+        .filter((product) => {
+            const matchesFilter = activeFilter === 'All' || product.category === activeFilter
+            const query = searchTerm.toLowerCase()
+            const matchesSearch =
+                product.name.toLowerCase().includes(query) || product.description.toLowerCase().includes(query)
+
             return matchesFilter && matchesSearch
         })
         .sort((a, b) => {
             switch (sortBy) {
-                case 'price-asc': return a.rentalPrice - b.rentalPrice
-                case 'price-desc': return b.rentalPrice - a.rentalPrice
-                case 'name-asc': return a.name.localeCompare(b.name)
-                case 'name-desc': return b.name.localeCompare(a.name)
-                default: return 0
+                case 'price-asc':
+                    return a.rentalPrice - b.rentalPrice
+                case 'price-desc':
+                    return b.rentalPrice - a.rentalPrice
+                case 'name-asc':
+                    return a.name.localeCompare(b.name)
+                case 'name-desc':
+                    return b.name.localeCompare(a.name)
+                default:
+                    return 0
             }
         })
 
     return (
-        <main className="py-24 pb-20 dark:bg-background-dark min-h-screen">
-            <div className="max-w-7xl mx-auto px-6 space-y-12">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <main className="min-h-screen bg-background-light py-24 pb-20 dark:bg-background-dark">
+            <div className="mx-auto max-w-7xl space-y-8 px-4 sm:px-6 lg:space-y-10">
+                <div className="page-header">
                     <div className="space-y-4">
-                        <h1 className="text-4xl md:text-5xl font-black text-ocean-deep dark:text-white">
-                            Rentals <span className="text-primary tracking-widest">Catalog</span>
+                        <h1 className="text-4xl font-black text-ocean-deep dark:text-white sm:text-5xl">
+                            Rentals <span className="tracking-widest text-primary">Catalog</span>
                         </h1>
-                        <p className="text-slate-500 text-lg">Curated collection of premium event essentials for your perfect day.</p>
+                        <p className="max-w-2xl text-base text-slate-500 sm:text-lg">
+                            Curated event essentials, polished presentation pieces, and dependable inventory for celebrations of every size.
+                        </p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-                        <div className="relative w-full sm:w-64">
+                    <div className="flex w-full flex-col gap-3 md:max-w-xl md:flex-row md:justify-end">
+                        <div className="relative w-full">
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
                             <input
                                 type="text"
                                 placeholder="Search rentals..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:border-primary outline-none transition-all shadow-sm"
+                                className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-12 pr-4 shadow-sm outline-none transition-all focus:border-primary dark:border-white/10 dark:bg-white/5"
                             />
                         </div>
-                        <div className="relative w-full sm:w-48">
+                        <div className="relative w-full md:max-w-[220px]">
                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">sort</span>
                             <select
                                 value={sortBy}
                                 onChange={(e) => setSortBy(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:border-primary outline-none transition-all shadow-sm appearance-none cursor-pointer font-bold text-sm text-slate-600 dark:text-white/70"
+                                className="w-full appearance-none rounded-2xl border border-slate-200 bg-white py-3 pl-12 pr-4 text-sm font-bold text-slate-600 shadow-sm outline-none transition-all focus:border-primary dark:border-white/10 dark:bg-white/5 dark:text-white/70"
                             >
                                 <option value="name-asc">Name (A-Z)</option>
                                 <option value="name-desc">Name (Z-A)</option>
@@ -138,77 +143,107 @@ export default function CatalogPage() {
                     </div>
                 )}
 
+                {!loading && !error && (
+                    <div className="flex flex-col gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-medium text-slate-500 dark:text-white/60">
+                            Showing <span className="font-bold text-ocean-deep dark:text-white">{filteredProducts.length}</span> items
+                            {activeFilter !== 'All' ? ` in ${formatCategory(activeFilter)}` : ''}
+                        </p>
+                        <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-white/10">
+                                {products.length} active listings
+                            </span>
+                            {searchTerm && (
+                                <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">
+                                    Filtered by "{searchTerm}"
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {loading ? (
                     <div className="flex justify-center py-20">
-                        <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <div className="size-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
                     </div>
                 ) : (
                     <>
-                        <div className="flex items-center gap-4 overflow-x-auto pb-4 hide-scrollbar">
-                            {filterOptions.map((cat) => (
+                        <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
+                            {filterOptions.map((category) => (
                                 <button
-                                    key={cat}
-                                    onClick={() => setActiveFilter(cat)}
-                                    className={`px-6 py-2.5 rounded-full text-sm font-bold shrink-0 transition-all border flex items-center gap-2 ${activeFilter === cat
-                                        ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
-                                        : 'bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 border-slate-200 dark:border-white/10 hover:border-primary'
-                                        }`}
+                                    key={category}
+                                    onClick={() => setActiveFilter(category)}
+                                    className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-bold transition-all ${
+                                        activeFilter === category
+                                            ? 'border-primary bg-primary text-white shadow-lg shadow-primary/20'
+                                            : 'border-slate-200 bg-white text-slate-600 hover:border-primary dark:border-white/10 dark:bg-white/5 dark:text-white/70'
+                                    }`}
                                 >
-                                    <span>{categoryEmojis[cat] || '📦'}</span>
-                                    <span>{cat === 'All' ? 'All Items' : formatCategory(cat)}</span>
-                                    {cat !== 'All' && (
-                                        <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeFilter === cat ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}`}>
-                                            {categoryCounts[cat] || 0}
+                                    <span className="material-symbols-outlined text-base">{categoryIcons[category] || 'inventory_2'}</span>
+                                    <span>{category === 'All' ? 'All Items' : formatCategory(category)}</span>
+                                    {category !== 'All' && (
+                                        <span
+                                            className={`rounded-md px-1.5 py-0.5 text-[10px] ${
+                                                activeFilter === category ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400 dark:bg-white/10'
+                                            }`}
+                                        >
+                                            {categoryCounts[category] || 0}
                                         </span>
                                     )}
                                 </button>
                             ))}
                         </div>
 
-                        {/* Product Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                            {filtered.map((product) => (
-                                <div key={product.id} className="group space-y-4">
-                                    <div className="relative aspect-square overflow-hidden rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-center">
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {filteredProducts.map((product) => (
+                                <div key={product.id} className="group flex flex-col gap-4">
+                                    <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-100 shadow-sm dark:border-white/10 dark:bg-white/5">
                                         {product.images && product.images.length > 0 ? (
                                             <img
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                 alt={product.name}
                                                 src={product.images[0]}
                                             />
                                         ) : (
                                             <span className="material-symbols-outlined text-6xl text-slate-300">image</span>
                                         )}
-                                        
-                                        {/* Overlay Buttons */}
-                                        <div className="absolute inset-0 bg-ocean-deep/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                            <button 
+
+                                        <div className="absolute inset-x-4 bottom-4 flex translate-y-0 justify-center opacity-100 transition-all md:translate-y-3 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
+                                            <button
                                                 onClick={() => openQuickView(product)}
-                                                className="size-12 bg-white text-ocean-deep rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                                                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-ocean-deep shadow-lg transition-transform hover:scale-105 dark:bg-background-dark dark:text-white"
                                                 title="Quick View"
                                             >
-                                                <span className="material-symbols-outlined">visibility</span>
+                                                <span className="material-symbols-outlined text-base">visibility</span>
+                                                Quick View
                                             </button>
                                         </div>
 
                                         {product.notes && (
-                                            <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 dark:bg-background-dark/90 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-primary border border-primary/20">
+                                            <div className="absolute right-4 top-4 rounded-full border border-primary/20 bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary backdrop-blur-md dark:bg-background-dark/90">
                                                 {product.notes}
                                             </div>
                                         )}
                                     </div>
-                                    <div className="space-y-1 px-1">
-                                        <h3 className="font-bold text-ocean-deep dark:text-white group-hover:text-primary transition-colors line-clamp-1">
-                                            {product.name}
-                                        </h3>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-xs font-bold text-slate-400 line-clamp-1">{product.description}</p>
-                                            <p className="text-primary font-black ml-2">${product.rentalPrice?.toFixed(2)}</p>
+
+                                    <div className="space-y-3 px-1">
+                                        <div className="space-y-1">
+                                            <h3 className="line-clamp-1 font-bold text-ocean-deep transition-colors group-hover:text-primary dark:text-white">
+                                                {product.name}
+                                            </h3>
+                                            <p className="line-clamp-2 text-sm text-slate-500 dark:text-white/60">{product.description}</p>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-white/60">
+                                                {formatCategory(product.category)}
+                                            </span>
+                                            <p className="text-lg font-black text-primary">${product.rentalPrice?.toFixed(2)}</p>
                                         </div>
                                     </div>
+
                                     <button
                                         onClick={() => addToCart(product, 1)}
-                                        className="w-full py-3 bg-ocean-deep text-white rounded-xl text-sm font-bold hover:bg-primary active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                        className="mt-auto flex w-full items-center justify-center gap-2 rounded-2xl bg-ocean-deep py-3 text-sm font-bold text-white transition-all active:scale-[0.98] hover:bg-primary"
                                     >
                                         <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
                                         Add to Quote
@@ -217,17 +252,17 @@ export default function CatalogPage() {
                             ))}
                         </div>
 
-                        {filtered.length === 0 && (
-                            <div className="text-center py-20">
-                                <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">search_off</span>
-                                <p className="text-slate-500 font-medium">No items found in this category.</p>
+                        {filteredProducts.length === 0 && (
+                            <div className="py-20 text-center">
+                                <span className="material-symbols-outlined mb-4 text-6xl text-slate-300">search_off</span>
+                                <p className="font-medium text-slate-500">No items found in this category.</p>
                             </div>
                         )}
                     </>
                 )}
             </div>
 
-            <QuickViewModal 
+            <QuickViewModal
                 item={selectedItem}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}

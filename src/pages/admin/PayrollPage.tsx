@@ -193,8 +193,8 @@ export default function PayrollPage() {
     }
 
     return (
-        <div className="p-8 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-8">
+        <div className="page-shell mx-auto max-w-7xl space-y-8">
+            <div className="page-header">
                 <div>
                     <h1 className="text-3xl font-black text-ocean-deep dark:text-white">Payroll & Timesheets</h1>
                     <p className="text-slate-500 mt-2">Manage employee time tracking and generate payroll data.</p>
@@ -208,7 +208,7 @@ export default function PayrollPage() {
             )}
 
             {/* Tabs */}
-            <div className="flex border-b mb-6 overflow-x-auto">
+            <div className="mb-2 flex overflow-x-auto border-b hide-scrollbar">
                 <button
                     onClick={() => setActiveTab('approvals')}
                     className={`pb-4 px-6 font-semibold flex items-center gap-2 whitespace-nowrap ${activeTab === 'approvals' ? 'border-b-2 border-primary-600 text-primary-700' : 'text-gray-500'}`}
@@ -232,42 +232,42 @@ export default function PayrollPage() {
 
             {/* Tab: Pending Approvals */}
             {activeTab === 'approvals' && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="panel-card overflow-hidden rounded-[1.5rem]">
                     {pendingLogs.length === 0 ? (
                         <div className="p-8 flex flex-col items-center justify-center text-gray-500">
                             <Check className="w-12 h-12 text-green-400 mb-2" />
                             <p>All caught up! No pending work logs to review.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                        <div className="data-table-shell">
+                            <table className="data-table">
                                 <thead className="bg-gray-50 border-b">
                                     <tr>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Employee</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Date</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Context</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Hours</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Notes</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase text-right">Actions</th>
+                                        <th className="text-xs font-semibold uppercase text-gray-500">Employee</th>
+                                        <th className="text-xs font-semibold uppercase text-gray-500">Date</th>
+                                        <th className="text-xs font-semibold uppercase text-gray-500">Context</th>
+                                        <th className="text-xs font-semibold uppercase text-gray-500">Hours</th>
+                                        <th className="text-xs font-semibold uppercase text-gray-500">Notes</th>
+                                        <th className="text-right text-xs font-semibold uppercase text-gray-500">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {pendingLogs.map(log => (
                                         <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-gray-900">{getEmployeeName(log.employeeId)}</td>
-                                            <td className="px-6 py-4 text-gray-600 truncate">{format(log.clockInTime, 'PP p')}</td>
-                                            <td className="px-6 py-4">
+                                            <td className="font-medium text-gray-900">{getEmployeeName(log.employeeId)}</td>
+                                            <td className="truncate text-gray-600">{format(log.clockInTime, 'PP p')}</td>
+                                            <td>
                                                 <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded inline-block uppercase tracking-wider font-semibold">
                                                     {log.context}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 font-bold text-gray-900">
+                                            <td className="font-bold text-gray-900">
                                                 {log.totalHours !== undefined ? log.totalHours.toFixed(2) : 'Active'}
                                             </td>
-                                            <td className="px-6 py-4 max-w-xs truncate text-gray-500" title={log.notes}>
+                                            <td className="max-w-xs truncate text-gray-500" title={log.notes}>
                                                 {log.notes || '-'}
                                             </td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="text-right">
                                                 {log.clockOutTime ? (
                                                     <div className="flex justify-end gap-2">
                                                         <button onClick={() => handleApprove(log.id)} className="p-2 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition-colors border border-green-200" title="Approve">
@@ -292,14 +292,14 @@ export default function PayrollPage() {
 
             {/* Tab: Payroll Runs */}
             {activeTab === 'runs' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Left List */}
-                    <div className="lg:col-span-1 border-r pr-6 border-b lg:border-b-0 pb-6 lg:pb-0">
+                    <div className="border-b pb-6 lg:col-span-1 lg:border-b-0 lg:border-r lg:pr-6 lg:pb-0">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold">Past Runs</h2>
                             <button 
                                 onClick={() => setIsRunModalOpen(true)}
-                                className="bg-primary-600 hover:bg-primary-700 text-white p-2 rounded-lg text-sm font-semibold flex items-center gap-1 shadow-sm"
+                            className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90"
                             >
                                 <Play className="w-4 h-4 fill-current"/> New Run
                             </button>
@@ -333,13 +333,13 @@ export default function PayrollPage() {
                     {/* Right Details */}
                     <div className="lg:col-span-2">
                         {activePeriod ? (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div className="p-6 border-b bg-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="panel-card overflow-hidden rounded-[1.5rem]">
+                                <div className="flex flex-col justify-between gap-4 border-b bg-gray-50 p-5 md:flex-row md:items-center sm:p-6">
                                     <div>
                                         <h3 className="text-xl font-bold">Run Details</h3>
                                         <p className="text-sm text-gray-500">Period: {format(activePeriod.startDate, 'PP')} - {format(activePeriod.endDate, 'PP')}</p>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col gap-2 sm:flex-row">
                                         <button 
                                             onClick={exportCSV} 
                                             className="bg-white border text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors"
@@ -358,46 +358,46 @@ export default function PayrollPage() {
                                         )}
                                     </div>
                                 </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-sm">
+                                <div className="data-table-shell">
+                                    <table className="data-table text-sm">
                                         <thead className="bg-gray-50 border-b">
                                             <tr>
-                                                <th className="px-6 py-3 font-semibold text-gray-500">Employee</th>
-                                                <th className="px-6 py-3 font-semibold text-gray-500">Hours</th>
-                                                <th className="px-6 py-3 font-semibold text-gray-500">Gross</th>
-                                                <th className="px-6 py-3 font-semibold text-gray-500">+ Bonus</th>
-                                                <th className="px-6 py-3 font-semibold text-gray-500">- Deduct</th>
-                                                <th className="px-6 py-3 font-semibold text-gray-500">Net Pay</th>
+                                                <th className="font-semibold text-gray-500">Employee</th>
+                                                <th className="font-semibold text-gray-500">Hours</th>
+                                                <th className="font-semibold text-gray-500">Gross</th>
+                                                <th className="font-semibold text-gray-500">+ Bonus</th>
+                                                <th className="font-semibold text-gray-500">- Deduct</th>
+                                                <th className="font-semibold text-gray-500">Net Pay</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {activeStubs.length === 0 && (
-                                                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">No approved hours found in this period.</td></tr>
+                                                <tr><td colSpan={6} className="text-center italic text-gray-500">No approved hours found in this period.</td></tr>
                                             )}
                                             {activeStubs.map(stub => (
                                                 <tr key={stub.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-6 py-4 font-semibold">{getEmployeeName(stub.employeeId)}</td>
-                                                    <td className="px-6 py-4 text-gray-600">{stub.totalHours.toFixed(2)}h  <span className="text-xs text-gray-400">(@${stub.hourlyRate})</span></td>
-                                                    <td className="px-6 py-4 font-medium text-gray-700">${stub.grossPay.toFixed(2)}</td>
+                                                    <td className="font-semibold">{getEmployeeName(stub.employeeId)}</td>
+                                                    <td className="text-gray-600">{stub.totalHours.toFixed(2)}h  <span className="text-xs text-gray-400">(@${stub.hourlyRate})</span></td>
+                                                    <td className="font-medium text-gray-700">${stub.grossPay.toFixed(2)}</td>
                                                     
                                                     {editingStubId === stub.id ? (
                                                         <>
-                                                            <td className="px-6 py-4">
+                                                            <td>
                                                                 <input type="number" step="0.01" value={stubEdits.bonuses} onChange={e => setStubEdits({...stubEdits, bonuses: parseFloat(e.target.value) || 0})} className="w-20 px-2 py-1 border rounded text-sm"/>
                                                             </td>
-                                                            <td className="px-6 py-4">
+                                                            <td>
                                                                 <input type="number" step="0.01" value={stubEdits.deductions} onChange={e => setStubEdits({...stubEdits, deductions: parseFloat(e.target.value) || 0})} className="w-20 px-2 py-1 border rounded text-sm"/>
                                                             </td>
-                                                            <td className="px-6 py-4 flex items-center gap-2">
+                                                            <td className="flex items-center gap-2">
                                                                 <button onClick={() => handleSaveStubEdit(stub.id)} className="bg-primary-600 text-white text-xs px-2 py-1 rounded">Save</button>
                                                                 <button onClick={() => setEditingStubId(null)} className="text-gray-500 text-xs px-2 py-1">Cancel</button>
                                                             </td>
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <td className="px-6 py-4 text-green-600">${stub.bonuses.toFixed(2)}</td>
-                                                            <td className="px-6 py-4 text-red-600">${stub.deductions.toFixed(2)}</td>
-                                                            <td className="px-6 py-4 flex items-center justify-between group">
+                                                            <td className="text-green-600">${stub.bonuses.toFixed(2)}</td>
+                                                            <td className="text-red-600">${stub.deductions.toFixed(2)}</td>
+                                                            <td className="group flex items-center justify-between">
                                                                 <span className="font-bold text-gray-900">${stub.netPay.toFixed(2)}</span>
                                                                 {activePeriod.status !== 'closed' && (
                                                                     <button onClick={() => { setEditingStubId(stub.id); setStubEdits({bonuses: stub.bonuses, deductions: stub.deductions}) }} className="text-xs font-semibold text-primary-600 opacity-0 group-hover:opacity-100 transition-opacity">Edit</button>
@@ -412,7 +412,7 @@ export default function PayrollPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center p-12 text-center h-full min-h-[400px]">
+                            <div className="flex h-full min-h-[400px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-8 text-center sm:p-12">
                                 <FileText className="w-12 h-12 text-gray-300 mb-4" />
                                 <h3 className="text-lg font-bold text-gray-900 mb-2">Select a Pay Run</h3>
                                 <p className="text-gray-500 max-w-sm">Click on a pay run from the list on the left to view employee pay stubs, make adjustments, and export data.</p>
@@ -423,8 +423,8 @@ export default function PayrollPage() {
             )}
             {/* New Pay Run Modal */}
             {isRunModalOpen && (
-                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                 <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
+                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                 <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl">
                      <div className="flex justify-between items-center p-6 border-b">
                          <h2 className="text-xl font-bold text-gray-900">Run Payroll</h2>
                          <button onClick={() => setIsRunModalOpen(false)} className="text-gray-400 hover:text-gray-600">

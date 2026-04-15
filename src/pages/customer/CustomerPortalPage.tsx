@@ -229,22 +229,22 @@ export default function CustomerPortalPage() {
     };
 
     return (
-        <div className="min-h-screen py-24 bg-slate-50 dark:bg-background-dark p-6">
-            <div className="max-w-6xl mx-auto space-y-8">
+        <div className="min-h-screen bg-slate-50 px-4 py-20 dark:bg-background-dark sm:px-6 lg:py-24">
+            <div className="mx-auto max-w-6xl space-y-8">
                 
                 {/* Header */}
-                <div className="bg-white dark:bg-white/5 rounded-[2.5rem] p-8 shadow-xl border border-slate-200 dark:border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-6">
-                        <div className="w-20 h-20 bg-ocean-deep text-white rounded-[1.5rem] flex items-center justify-center text-3xl font-black shadow-lg shadow-ocean-deep/20">
+                <div className="flex flex-col gap-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-white/5 sm:rounded-[2.5rem] sm:p-8 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-start gap-4 sm:items-center sm:gap-6">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-ocean-deep text-2xl font-black text-white shadow-lg shadow-ocean-deep/20 sm:h-20 sm:w-20 sm:rounded-[1.5rem] sm:text-3xl">
                             {userProfile.name ? userProfile.name.charAt(0).toUpperCase() : 'C'}
                         </div>
                         <div>
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                <h1 className="text-2xl font-black leading-tight text-slate-900 dark:text-white sm:text-3xl">
                                     Welcome back, <span className="text-primary">{userProfile.name?.split(' ')[0] || 'Guest'}</span>
                                 </h1>
                                 {auth.currentUser?.emailVerified && (
-                                    <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <div className="flex items-center gap-1 self-start rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
                                         <CheckCircle2 className="w-3 h-3" /> Verified
                                     </div>
                                 )}
@@ -253,21 +253,22 @@ export default function CustomerPortalPage() {
                         </div>
                     </div>
                     
-                    <div className="flex gap-4">
-                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center min-w-[120px]">
+                    <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2 sm:gap-4">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
                             <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Bookings</p>
                             <p className="text-2xl font-black text-ocean-deep">{events.length}</p>
                         </div>
-                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center min-w-[120px]">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
                             <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Quotes</p>
                             <p className="text-2xl font-black text-ocean-deep">{quotes.length}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-4 md:gap-8">
                     {/* Sidebar Tabs */}
                     <div className="space-y-2">
+                        <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar md:block md:space-y-2 md:pb-0">
                         {[
                             { id: 'bookings', label: 'My Bookings', icon: Briefcase },
                             { id: 'quotes', label: 'My Quotes', icon: MessageSquare },
@@ -277,7 +278,7 @@ export default function CustomerPortalPage() {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all ${
+                                className={`flex shrink-0 items-center gap-4 rounded-2xl px-5 py-3 font-bold transition-all md:w-full md:px-6 md:py-4 ${
                                     activeTab === tab.id
                                         ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-100'
                                         : 'bg-white dark:bg-white/5 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10 border border-transparent hover:border-slate-200 dark:hover:border-white/10'
@@ -287,6 +288,7 @@ export default function CustomerPortalPage() {
                                 {tab.label}
                             </button>
                         ))}
+                        </div>
                         <button
                             onClick={logout}
                             className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-all mt-4 border border-red-100"
@@ -298,7 +300,7 @@ export default function CustomerPortalPage() {
 
                     {/* Content Area */}
                     <div className="col-span-1 md:col-span-3">
-                        <div className="bg-white dark:bg-white/5 rounded-[2.5rem] p-8 shadow-xl border border-slate-200 dark:border-white/10 min-h-[500px]">
+                        <div className="min-h-[500px] rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-white/5 sm:rounded-[2.5rem] sm:p-8">
                             
                             {msg.text && (
                                 <div className={`mb-6 p-4 rounded-2xl text-sm font-bold border ${msg.type === 'error' ? 'bg-red-50 border-red-100 text-red-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
@@ -540,9 +542,9 @@ export default function CustomerPortalPage() {
             </div>
 
             {selectedEvent && (
-                <div className="fixed inset-0 z-50 bg-ocean-deep/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden">
-                        <div className="px-8 py-6 border-b border-slate-100 dark:border-white/10 flex items-start justify-between gap-4 bg-slate-50 dark:bg-slate-800/50">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-deep/80 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50 px-5 py-5 dark:border-white/10 dark:bg-slate-800/50 sm:px-8 sm:py-6">
                             <div>
                                 <p className="text-xs font-black uppercase tracking-widest text-primary">Booking Details</p>
                                 <h2 className="text-2xl font-black text-ocean-deep dark:text-white mt-1 capitalize">
@@ -560,8 +562,8 @@ export default function CustomerPortalPage() {
                             </button>
                         </div>
 
-                        <div className="p-8 space-y-6">
-                            <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-6 p-5 sm:p-8">
+                            <div className="grid gap-4 md:grid-cols-2">
                                 <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
                                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">Status</p>
                                     <div className="mt-3 flex flex-wrap gap-2">
@@ -640,9 +642,9 @@ function BookingCard({
     const mainInvoice = invoices && invoices.length > 0 ? invoices[0] : null;
 
     return (
-        <div className="p-6 rounded-3xl border border-slate-200 bg-slate-50 hover:shadow-md transition-shadow group">
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex gap-4 items-start">
+        <div className="group rounded-3xl border border-slate-200 bg-slate-50 p-5 transition-shadow hover:shadow-md sm:p-6">
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-4">
                     <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
                         <Calendar className="w-6 h-6 text-primary" />
                     </div>
@@ -653,12 +655,12 @@ function BookingCard({
                         </p>
                     </div>
                 </div>
-                <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${getStatusColor(event.status)}`}>
+                <span className={`self-start rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest ${getStatusColor(event.status)}`}>
                     {event.status}
                 </span>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4 mt-6">
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <div className="flex items-start gap-2">
                     <MapPin className="w-4 h-4 text-slate-400 mt-1" />
                     <p className="text-sm text-slate-600">{event.venueAddress || 'No venue provided'}</p>
@@ -675,7 +677,7 @@ function BookingCard({
                 )}
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-200 flex justify-end">
+            <div className="mt-4 flex justify-end border-t border-slate-200 pt-4">
                 <button onClick={onView} className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
                      View Complete Details
                 </button>
@@ -698,7 +700,7 @@ function QuoteCard({
     const [isConfirming, setIsConfirming] = useState(false);
 
     return (
-        <div className="p-6 rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
             <div className={`absolute top-0 left-0 w-2 h-full ${quote.status === QuoteStatus.Sent ? 'bg-indigo-500' : 'bg-primary/20'}`}></div>
             
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -715,7 +717,7 @@ function QuoteCard({
                         </h3>
                         <p className="text-slate-400 text-sm mt-1 font-medium">Requested on {format(new Date(quote.createdAt), 'PPP')}</p>
                         
-                        <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {quote.eventDate && (
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-400 uppercase font-bold">Event Date</p>
@@ -738,18 +740,18 @@ function QuoteCard({
                     </div>
                 </div>
 
-                <div className="text-right flex flex-col items-end justify-between h-full min-h-[120px]">
-                    <div className="bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 inline-block min-w-[140px]">
+                    <div className="flex min-h-[120px] flex-col justify-between gap-4 text-left md:items-end md:text-right">
+                    <div className="inline-block min-w-[140px] rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
                          <p className="text-xs text-slate-400 uppercase font-bold mb-1 border-b border-slate-200 pb-1">Quote Total</p>
                          <p className="text-2xl font-black text-ocean-deep">
                              {(quote.status === QuoteStatus.Pending || quote.status === QuoteStatus.Drafting) ? 'Pending Review' : (quote.total > 0 ? `$${quote.total.toFixed(2)}` : 'Pending')}
                          </p>
                     </div>
                     
-                    <div className="flex flex-col gap-2 mt-4 items-end">
+                    <div className="mt-4 flex flex-col gap-2 md:items-end">
                         {quote.status === QuoteStatus.Sent && (
                             isConfirming ? (
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                                     <button
                                         onClick={() => setIsConfirming(false)}
                                         className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl"
