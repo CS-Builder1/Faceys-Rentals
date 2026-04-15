@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { X, FileText, Download, Clock, Loader2 } from 'lucide-react'
 import { payrollService } from '../services/payrollService'
 import type { PayStub } from '../types'
@@ -15,13 +15,7 @@ const PayStubsModal: React.FC<PayStubsModalProps> = ({ isOpen, onClose, employee
     const [stubs, setStubs] = useState<PayStub[]>([])
     const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        if (isOpen && employeeId) {
-            loadStubs()
-        }
-    }, [isOpen, employeeId])
-
-    const loadStubs = async () => {
+    const loadStubs = useCallback(async () => {
         setLoading(true)
         try {
             const data = await payrollService.getPayStubsByEmployeeId(employeeId)
@@ -32,7 +26,13 @@ const PayStubsModal: React.FC<PayStubsModalProps> = ({ isOpen, onClose, employee
         } finally {
             setLoading(false)
         }
-    }
+    }, [employeeId])
+
+    useEffect(() => {
+        if (isOpen && employeeId) {
+            loadStubs()
+        }
+    }, [isOpen, employeeId, loadStubs])
 
     if (!isOpen) return null
 

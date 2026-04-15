@@ -104,19 +104,19 @@ export default function CustomerDetailDrawer({ isOpen, customer, onClose, onUpda
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-slide-in-right overflow-hidden border-l border-slate-200 dark:border-white/10">
+            <div className="relative h-full w-full max-w-3xl overflow-hidden border-l border-slate-200 bg-white shadow-2xl animate-slide-in-right dark:border-white/10 dark:bg-slate-900">
                 
                 {/* Header Section */}
-                <div className="flex-shrink-0 border-b border-slate-200 dark:border-white/10 p-6 bg-slate-50 dark:bg-slate-900">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-2xl font-black">
+                <div className="flex-shrink-0 border-b border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-slate-900 sm:p-6">
+                    <div className="mb-4 flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-4 sm:items-center">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-black text-primary sm:h-16 sm:w-16">
                                 {customer.contactName.charAt(0).toUpperCase()}
                             </div>
                             <div>
                                 <h2 className="text-2xl font-black text-ocean-deep dark:text-white">{customer.contactName}</h2>
                                 {customer.businessName && <p className="text-slate-500 font-medium flex items-center gap-1"><Building2 className="w-4 h-4" /> {customer.businessName}</p>}
-                                <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
+                                <div className="mt-1 flex flex-col gap-1 text-sm text-slate-400 sm:flex-row sm:items-center sm:gap-3">
                                     <span className="flex items-center gap-1"><Mail className="w-3 h-3"/> {customer.email}</span>
                                     <span className="flex items-center gap-1"><Phone className="w-3 h-3"/> {customer.phone}</span>
                                 </div>
@@ -128,7 +128,7 @@ export default function CustomerDetailDrawer({ isOpen, customer, onClose, onUpda
                     </div>
 
                     {/* Stats Row */}
-                    <div className="grid grid-cols-4 gap-4 mt-6">
+                    <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                         <div className="bg-white dark:bg-white/5 p-3 rounded-xl border border-slate-200 dark:border-white/5">
                             <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">LTV</p>
                             <p className="text-lg font-black text-ocean-deep dark:text-white">${totalRevenue.toFixed(2)}</p>
@@ -148,7 +148,7 @@ export default function CustomerDetailDrawer({ isOpen, customer, onClose, onUpda
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex gap-6 mt-6 border-b border-slate-200 dark:border-white/10">
+                    <div className="mt-6 flex gap-3 overflow-x-auto border-b border-slate-200 pb-1 hide-scrollbar dark:border-white/10">
                         <button 
                             onClick={() => setActiveTab('overview')}
                             className={`pb-3 font-bold text-sm transition-colors border-b-2 ${activeTab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
@@ -171,7 +171,7 @@ export default function CustomerDetailDrawer({ isOpen, customer, onClose, onUpda
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-slate-900 custom-scrollbar">
+                <div className="custom-scrollbar flex-1 overflow-y-auto bg-white p-5 dark:bg-slate-900 sm:p-6">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-40">
                             <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -185,7 +185,7 @@ export default function CustomerDetailDrawer({ isOpen, customer, onClose, onUpda
                                             {msg.text}
                                         </div>
                                     )}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div className="space-y-1">
                                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contact Name</label>
                                             <input type="text" value={formData.contactName || ''} onChange={(e) => setFormData({...formData, contactName: e.target.value})} className="w-full px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-sm" />
@@ -218,7 +218,7 @@ export default function CustomerDetailDrawer({ isOpen, customer, onClose, onUpda
 
                                     <div className="pt-4 border-t border-slate-200 dark:border-white/10 space-y-4">
                                         <h3 className="font-black text-ocean-deep dark:text-white flex items-center gap-2"><User className="w-4 h-4 text-primary"/> CRM Details</h3>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                             <div className="space-y-1">
                                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Referral Source</label>
                                                 <input type="text" value={formData.referralSource || ''} onChange={(e) => setFormData({...formData, referralSource: e.target.value})} className="w-full px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-sm" placeholder="e.g. Google, Friend" />
@@ -243,7 +243,7 @@ export default function CustomerDetailDrawer({ isOpen, customer, onClose, onUpda
                                     </div>
 
                                     <div className="flex justify-end pt-4">
-                                        <button onClick={handleSaveCRM} disabled={isSaving} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50">
+                                        <button onClick={handleSaveCRM} disabled={isSaving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-2.5 font-bold text-white transition-all hover:bg-primary/90 disabled:opacity-50 sm:w-auto">
                                             {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
                                             Save Details
                                         </button>

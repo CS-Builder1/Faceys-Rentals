@@ -12,39 +12,35 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
     return (
         <>
-            {/* Backdrop */}
-            <div 
+            <div
                 className={clsx(
-                    "fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] transition-opacity duration-300",
-                    isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+                    'fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm transition-opacity duration-300',
+                    isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
                 )}
                 onClick={onClose}
             />
 
-            {/* Drawer */}
             <div className={clsx(
-                "fixed top-0 right-0 h-full w-full max-w-md bg-white dark:bg-background-dark shadow-2xl z-[101] transform transition-transform duration-500 ease-out flex flex-col",
-                isOpen ? "translate-x-0" : "translate-x-full"
+                'fixed right-0 top-0 z-[101] flex h-full w-full max-w-md transform flex-col bg-white shadow-2xl transition-transform duration-500 ease-out dark:bg-background-dark',
+                isOpen ? 'translate-x-0' : 'translate-x-full'
             )}>
-                {/* Header */}
-                <div className="p-6 border-b border-slate-100 dark:border-white/10 flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-white/10 sm:p-6">
                     <div>
                         <h2 className="text-2xl font-black text-ocean-deep dark:text-white">Your <span className="text-primary italic">Quote</span></h2>
                         <p className="text-slate-500 dark:text-white/60 text-sm font-medium">Estimated selection</p>
                     </div>
-                    <button 
+                    <button
                         onClick={onClose}
-                        className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors"
+                        className="rounded-full p-2 transition-colors hover:bg-slate-100 dark:hover:bg-white/10"
                     >
                         <span className="material-symbols-outlined text-slate-500">close</span>
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
                     {cartItems.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-70">
-                            <div className="size-20 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-400">
+                        <div className="flex h-full flex-col items-center justify-center space-y-4 text-center opacity-70">
+                            <div className="flex size-20 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-white/5">
                                 <span className="material-symbols-outlined text-4xl">shopping_cart</span>
                             </div>
                             <div>
@@ -54,8 +50,8 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                         </div>
                     ) : (
                         cartItems.map((item) => (
-                            <div key={item.inventoryItem.id} className="flex gap-4 group">
-                                <div className="size-20 rounded-2xl overflow-hidden border border-slate-100 dark:border-white/10 flex-shrink-0">
+                            <div key={item.inventoryItem.id} className="group flex gap-4 rounded-[1.5rem] border border-slate-100 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                                <div className="size-20 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-100 dark:border-white/10">
                                     {item.inventoryItem.images?.[0] ? (
                                         <img src={item.inventoryItem.images[0]} alt={item.inventoryItem.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                     ) : (
@@ -64,30 +60,30 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-start">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-start justify-between gap-3">
                                         <h3 className="font-bold text-ocean-deep dark:text-white truncate">{item.inventoryItem.name}</h3>
-                                        <button 
+                                        <button
                                             onClick={() => removeFromCart(item.inventoryItem.id)}
-                                            className="text-slate-400 hover:text-red-500 transition-colors"
+                                            className="text-slate-400 transition-colors hover:text-red-500"
                                         >
                                             <span className="material-symbols-outlined text-sm">delete</span>
                                         </button>
                                     </div>
                                     <p className="text-xs text-slate-500 mb-2">${item.inventoryItem.rentalPrice?.toFixed(2)} ea</p>
-                                    
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 rounded-lg border border-slate-100 dark:border-white/10 p-1">
-                                            <button 
+
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2 rounded-lg border border-slate-100 bg-white p-1 dark:border-white/10 dark:bg-white/5">
+                                            <button
                                                 onClick={() => updateQuantity(item.inventoryItem.id, Math.max(1, item.quantity - 1))}
-                                                className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-ocean-deep"
+                                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-ocean-deep dark:hover:bg-white/10"
                                             >
                                                 <span className="material-symbols-outlined text-xs">remove</span>
                                             </button>
                                             <span className="text-xs font-black min-w-4 text-center">{item.quantity}</span>
-                                            <button 
+                                            <button
                                                 onClick={() => updateQuantity(item.inventoryItem.id, item.quantity + 1)}
-                                                className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-ocean-deep"
+                                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-ocean-deep dark:hover:bg-white/10"
                                             >
                                                 <span className="material-symbols-outlined text-xs">add</span>
                                             </button>
@@ -102,20 +98,19 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     )}
                 </div>
 
-                {/* Footer */}
                 {cartItems.length > 0 && (
-                    <div className="p-6 border-t border-slate-100 dark:border-white/10 space-y-4 bg-slate-50/50 dark:bg-white/[0.02]">
-                        <div className="flex justify-between items-center text-lg font-black text-ocean-deep dark:text-white">
+                    <div className="space-y-4 border-t border-slate-100 bg-slate-50/70 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] dark:border-white/10 dark:bg-white/[0.02] sm:p-6">
+                        <div className="flex items-center justify-between text-lg font-black text-ocean-deep dark:text-white">
                             <span>Estimated Total</span>
                             <span className="text-primary">${cartSubtotal.toFixed(2)}</span>
                         </div>
                         <p className="text-[10px] text-slate-400 font-medium leading-tight">
                             * Pricing is estimated. Delivery, setup, and sales tax will be calculated in your final quote.
                         </p>
-                        <Link 
+                        <Link
                             to="/request-quote"
                             onClick={onClose}
-                            className="block w-full py-4 bg-primary text-white rounded-2xl text-center font-black text-lg shadow-xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            className="block w-full rounded-2xl bg-primary py-4 text-center text-lg font-black text-white shadow-xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
                             Request Official Quote
                         </Link>

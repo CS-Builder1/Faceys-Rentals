@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Event, Quote, UserRole, Client, Invoice } from '../../types';
+import { Event, Quote, UserRole, Client, Invoice, QuoteStatus } from '../../types';
 import { eventService } from '../../services/eventService';
 import { quoteService } from '../../services/quoteService';
 import { clientService } from '../../services/clientService';
 import { invoiceService } from '../../services/invoiceService';
 import { User, ShieldCheck, Mail, Phone, Lock, LogOut, Save, Loader2, MessageSquare, Briefcase, Calendar, MapPin, CheckCircle2, AlertCircle, Building2, CreditCard, FileText } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../services/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { format, isBefore, startOfToday } from 'date-fns';
@@ -20,6 +20,7 @@ export default function CustomerPortalPage() {
     const [events, setEvents] = useState<Event[]>([]);
     const [invoices, setInvoices] = useState<Record<string, Invoice[]>>({});
     const [quotes, setQuotes] = useState<Quote[]>([]);
+    const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     
     // Form states
@@ -36,41 +37,43 @@ export default function CustomerPortalPage() {
         specialNotes: ''
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [acceptingQuoteId, setAcceptingQuoteId] = useState<string | null>(null);
     const [msg, setMsg] = useState({ text: '', type: '' });
 
-    useEffect(() => {
-        if (userProfile && userProfile.role === UserRole.Client) {
-            fetchData();
-        }
-    }, [userProfile]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         if (!userProfile) return;
         setIsLoading(true);
         try {
-            // Fetch comprehensive client profile
-            const clientDoc = await clientService.getById(userProfile.id);
-            if (clientDoc) {
-                setClientData(clientDoc);
+            let resolvedClient = await clientService.getById(userProfile.id);
+            if (!resolvedClient && userProfile.email) {
+                const matchedClients = await clientService.getByEmail(userProfile.email);
+                resolvedClient = matchedClients[0] || null;
+            }
+
+            if (resolvedClient) {
+                setClientData(resolvedClient);
                 setFormData({
-                    name: clientDoc.contactName || userProfile.name || '',
-                    phone: clientDoc.phone || userProfile.phone || '',
-                    businessName: clientDoc.businessName || '',
-                    billingAddress: clientDoc.billingAddress || '',
-                    billingCity: clientDoc.billingCity || '',
-                    billingState: clientDoc.billingState || '',
-                    billingZip: clientDoc.billingZip || '',
-                    preferredContact: clientDoc.preferredContact || 'email',
-                    referralSource: clientDoc.referralSource || '',
-                    specialNotes: clientDoc.specialNotes || ''
+                    name: resolvedClient.contactName || userProfile.name || '',
+                    phone: resolvedClient.phone || userProfile.phone || '',
+                    businessName: resolvedClient.businessName || '',
+                    billingAddress: resolvedClient.billingAddress || '',
+                    billingCity: resolvedClient.billingCity || '',
+                    billingState: resolvedClient.billingState || '',
+                    billingZip: resolvedClient.billingZip || '',
+                    preferredContact: resolvedClient.preferredContact || 'email',
+                    referralSource: resolvedClient.referralSource || '',
+                    specialNotes: resolvedClient.specialNotes || ''
                 });
             } else {
-                // Fallback for missing customer doc
+                setClientData(null);
                 setFormData(prev => ({ ...prev, name: userProfile.name || '', phone: userProfile.phone || '' }));
             }
 
-            // Fetch Events
-            const userEvents = await eventService.getByClient(userProfile.id);
+            const userEvents = resolvedClient
+                ? await eventService.getByClient(resolvedClient.id)
+                : userProfile.email
+                    ? await eventService.getByClientEmail(userProfile.email)
+                    : [];
             setEvents(userEvents);
 
             // Fetch Invoices for those Events
@@ -83,12 +86,9 @@ export default function CustomerPortalPage() {
             );
             setInvoices(invoicesMap);
             
-            // Fetch Quotes (Try by clientId first, fallback to email if necessary)
-            // Using resilient approach: get by clientId, if none, maybe by email
-            let userQuotes = await quoteService.getByClient(userProfile.id);
+            let userQuotes = resolvedClient ? await quoteService.getByClient(resolvedClient.id) : [];
             if (userQuotes.length === 0 && userProfile.email) {
-                 const allQuotes = await quoteService.getAll();
-                 userQuotes = allQuotes.filter(q => q.customerEmail === userProfile.email);
+                userQuotes = await quoteService.getByCustomerEmail(userProfile.email);
             }
             setQuotes(userQuotes);
         } catch (err) {
@@ -97,7 +97,13 @@ export default function CustomerPortalPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [userProfile]);
+
+    useEffect(() => {
+        if (userProfile && userProfile.role === UserRole.Client) {
+            fetchData();
+        }
+    }, [userProfile, fetchData]);
 
     const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -106,17 +112,17 @@ export default function CustomerPortalPage() {
         setMsg({ text: '', type: '' });
 
         try {
-            // Update User Doc
             await updateDoc(doc(db, 'users', userProfile.id), {
                 name: formData.name,
                 phone: formData.phone,
                 updatedAt: new Date().toISOString()
             });
 
-            // Update or Create Customer Doc
             if (clientData) {
-                await updateDoc(doc(db, 'customers', userProfile.id), {
+                await updateDoc(doc(db, 'customers', clientData.id), {
+                    id: clientData.id,
                     contactName: formData.name,
+                    email: clientData.email || userProfile.email || '',
                     phone: formData.phone,
                     businessName: formData.businessName,
                     billingAddress: formData.billingAddress,
@@ -129,11 +135,29 @@ export default function CustomerPortalPage() {
                     updatedAt: new Date().toISOString()
                 });
             } else {
-                // Should exist but just in case
-                console.warn("Client doc not found during save, might need manual creation if rule blocks.");
+                const clientRef = doc(db, 'customers', userProfile.id);
+                await setDoc(clientRef, {
+                    id: userProfile.id,
+                    contactName: formData.name,
+                    email: userProfile.email || '',
+                    phone: formData.phone,
+                    businessName: formData.businessName,
+                    billingAddress: formData.billingAddress,
+                    billingCity: formData.billingCity,
+                    billingState: formData.billingState,
+                    billingZip: formData.billingZip,
+                    preferredContact: formData.preferredContact,
+                    referralSource: formData.referralSource,
+                    specialNotes: formData.specialNotes,
+                    notes: '',
+                    lifetimeValue: 0,
+                    createdAt: new Date(),
+                    status: 'active'
+                }, { merge: true });
             }
 
             setMsg({ text: 'Profile updated successfully!', type: 'success' });
+            await fetchData();
         } catch (err: any) {
             console.error(err);
             setMsg({ text: err.message || 'Failed to update profile.', type: 'error' });
@@ -149,6 +173,24 @@ export default function CustomerPortalPage() {
             setMsg({ text: 'Password reset link sent to your email.', type: 'success' });
         } catch (err: any) {
             setMsg({ text: err.message || 'Failed to send reset email.', type: 'error' });
+        }
+    };
+
+    const handleAcceptQuote = async (quote: Quote) => {
+        setAcceptingQuoteId(quote.id);
+        setMsg({ text: '', type: '' });
+
+        try {
+            await quoteService.update(quote.id, { status: QuoteStatus.Accepted });
+            setQuotes((current) =>
+                current.map((item) => item.id === quote.id ? { ...item, status: QuoteStatus.Accepted } : item)
+            );
+            setMsg({ text: 'Quote accepted successfully. The team will follow up with your invoice and booking details.', type: 'success' });
+        } catch (err: any) {
+            console.error(err);
+            setMsg({ text: err.message || 'We could not accept this quote right now. Please try again.', type: 'error' });
+        } finally {
+            setAcceptingQuoteId(null);
         }
     };
 
@@ -168,8 +210,12 @@ export default function CustomerPortalPage() {
         switch (status.toLowerCase()) {
             case 'confirmed': case 'completed': case 'paid': case 'accepted':
                 return 'bg-emerald-100 text-emerald-700';
-            case 'inquiry': case 'quoted': case 'sent': case 'unpaid':
+            case 'sent':
+                return 'bg-indigo-100 text-indigo-700';
+            case 'inquiry': case 'quoted': case 'pending':
                 return 'bg-amber-100 text-amber-700';
+            case 'drafting':
+                return 'bg-purple-100 text-purple-700';
             case 'cancelled': case 'expired': case 'overdue':
                 return 'bg-red-100 text-red-700';
             default:
@@ -177,23 +223,28 @@ export default function CustomerPortalPage() {
         }
     };
 
+    const formatDeliveryStatus = (status?: string) => {
+        if (!status) return 'Pending';
+        return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+    };
+
     return (
-        <div className="min-h-screen py-24 bg-slate-50 dark:bg-background-dark p-6">
-            <div className="max-w-6xl mx-auto space-y-8">
+        <div className="min-h-screen bg-slate-50 px-4 py-20 dark:bg-background-dark sm:px-6 lg:py-24">
+            <div className="mx-auto max-w-6xl space-y-8">
                 
                 {/* Header */}
-                <div className="bg-white dark:bg-white/5 rounded-[2.5rem] p-8 shadow-xl border border-slate-200 dark:border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-6">
-                        <div className="w-20 h-20 bg-ocean-deep text-white rounded-[1.5rem] flex items-center justify-center text-3xl font-black shadow-lg shadow-ocean-deep/20">
+                <div className="flex flex-col gap-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-white/5 sm:rounded-[2.5rem] sm:p-8 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-start gap-4 sm:items-center sm:gap-6">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-ocean-deep text-2xl font-black text-white shadow-lg shadow-ocean-deep/20 sm:h-20 sm:w-20 sm:rounded-[1.5rem] sm:text-3xl">
                             {userProfile.name ? userProfile.name.charAt(0).toUpperCase() : 'C'}
                         </div>
                         <div>
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                <h1 className="text-2xl font-black leading-tight text-slate-900 dark:text-white sm:text-3xl">
                                     Welcome back, <span className="text-primary">{userProfile.name?.split(' ')[0] || 'Guest'}</span>
                                 </h1>
                                 {auth.currentUser?.emailVerified && (
-                                    <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <div className="flex items-center gap-1 self-start rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
                                         <CheckCircle2 className="w-3 h-3" /> Verified
                                     </div>
                                 )}
@@ -202,21 +253,22 @@ export default function CustomerPortalPage() {
                         </div>
                     </div>
                     
-                    <div className="flex gap-4">
-                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center min-w-[120px]">
+                    <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2 sm:gap-4">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
                             <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Bookings</p>
                             <p className="text-2xl font-black text-ocean-deep">{events.length}</p>
                         </div>
-                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center min-w-[120px]">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
                             <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Quotes</p>
                             <p className="text-2xl font-black text-ocean-deep">{quotes.length}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-4 md:gap-8">
                     {/* Sidebar Tabs */}
                     <div className="space-y-2">
+                        <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar md:block md:space-y-2 md:pb-0">
                         {[
                             { id: 'bookings', label: 'My Bookings', icon: Briefcase },
                             { id: 'quotes', label: 'My Quotes', icon: MessageSquare },
@@ -226,7 +278,7 @@ export default function CustomerPortalPage() {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all ${
+                                className={`flex shrink-0 items-center gap-4 rounded-2xl px-5 py-3 font-bold transition-all md:w-full md:px-6 md:py-4 ${
                                     activeTab === tab.id
                                         ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-100'
                                         : 'bg-white dark:bg-white/5 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10 border border-transparent hover:border-slate-200 dark:hover:border-white/10'
@@ -236,6 +288,7 @@ export default function CustomerPortalPage() {
                                 {tab.label}
                             </button>
                         ))}
+                        </div>
                         <button
                             onClick={logout}
                             className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-all mt-4 border border-red-100"
@@ -247,7 +300,7 @@ export default function CustomerPortalPage() {
 
                     {/* Content Area */}
                     <div className="col-span-1 md:col-span-3">
-                        <div className="bg-white dark:bg-white/5 rounded-[2.5rem] p-8 shadow-xl border border-slate-200 dark:border-white/10 min-h-[500px]">
+                        <div className="min-h-[500px] rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-white/5 sm:rounded-[2.5rem] sm:p-8">
                             
                             {msg.text && (
                                 <div className={`mb-6 p-4 rounded-2xl text-sm font-bold border ${msg.type === 'error' ? 'bg-red-50 border-red-100 text-red-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
@@ -276,7 +329,14 @@ export default function CustomerPortalPage() {
                                                 ) : (
                                                     <div className="grid gap-4">
                                                         {upcomingEvents.map((event) => (
-                                                            <BookingCard key={event.id} event={event} invoices={invoices[event.id]} getStatusColor={getStatusColor} />
+                                                            <BookingCard
+                                                                key={event.id}
+                                                                event={event}
+                                                                invoices={invoices[event.id]}
+                                                                getStatusColor={getStatusColor}
+                                                                formatDeliveryStatus={formatDeliveryStatus}
+                                                                onView={() => setSelectedEvent(event)}
+                                                            />
                                                         ))}
                                                     </div>
                                                 )}
@@ -288,7 +348,14 @@ export default function CustomerPortalPage() {
                                                     <h3 className="text-lg font-bold text-slate-400 uppercase tracking-widest">Past History</h3>
                                                     <div className="grid gap-4">
                                                         {pastEvents.map((event) => (
-                                                            <BookingCard key={event.id} event={event} invoices={invoices[event.id]} getStatusColor={getStatusColor} />
+                                                            <BookingCard
+                                                                key={event.id}
+                                                                event={event}
+                                                                invoices={invoices[event.id]}
+                                                                getStatusColor={getStatusColor}
+                                                                formatDeliveryStatus={formatDeliveryStatus}
+                                                                onView={() => setSelectedEvent(event)}
+                                                            />
                                                         ))}
                                                     </div>
                                                 </div>
@@ -308,7 +375,13 @@ export default function CustomerPortalPage() {
                                             ) : (
                                                 <div className="grid gap-6">
                                                     {quotes.map((quote) => (
-                                                        <QuoteCard key={quote.id} quote={quote} getStatusColor={getStatusColor} />
+                                                        <QuoteCard
+                                                            key={quote.id}
+                                                            quote={quote}
+                                                            getStatusColor={getStatusColor}
+                                                            onAccept={handleAcceptQuote}
+                                                            isAccepting={acceptingQuoteId === quote.id}
+                                                        />
                                                     ))}
                                                 </div>
                                             )}
@@ -467,17 +540,111 @@ export default function CustomerPortalPage() {
                     </div>
                 </div>
             </div>
+
+            {selectedEvent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-deep/80 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50 px-5 py-5 dark:border-white/10 dark:bg-slate-800/50 sm:px-8 sm:py-6">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-primary">Booking Details</p>
+                                <h2 className="text-2xl font-black text-ocean-deep dark:text-white mt-1 capitalize">
+                                    {selectedEvent.eventType} Booking
+                                </h2>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    {format(new Date(selectedEvent.eventDate), 'PPP')}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedEvent(null)}
+                                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-6 p-5 sm:p-8">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Status</p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest ${getStatusColor(selectedEvent.status)}`}>
+                                            {selectedEvent.status}
+                                        </span>
+                                        <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-blue-100 text-blue-700">
+                                            {formatDeliveryStatus(selectedEvent.deliveryStatus)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Schedule</p>
+                                    <p className="mt-3 text-sm font-bold text-ocean-deep dark:text-white">
+                                        {selectedEvent.startTime || 'TBD'} - {selectedEvent.endTime || 'TBD'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Venue</p>
+                                <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
+                                    {selectedEvent.venueAddress || 'Venue details will be shared by the team.'}
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Team Notes</p>
+                                <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
+                                    {selectedEvent.internalNotes || 'No additional delivery or setup notes have been shared yet.'}
+                                </p>
+                            </div>
+
+                            {(invoices[selectedEvent.id] || []).length > 0 && (
+                                <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Invoices</p>
+                                    <div className="mt-4 space-y-3">
+                                        {(invoices[selectedEvent.id] || []).map((invoice) => (
+                                            <div key={invoice.id} className="flex items-center justify-between gap-4 rounded-2xl bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-white/10">
+                                                <div>
+                                                    <p className="text-sm font-bold text-ocean-deep dark:text-white">{invoice.invoiceNumber}</p>
+                                                    <p className="text-xs text-slate-500">Due {format(new Date(invoice.dueDate), 'PPP')}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-black text-ocean-deep dark:text-white">${invoice.total.toFixed(2)}</p>
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest ${getStatusColor(invoice.status)}`}>
+                                                        {invoice.status}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoices?: Invoice[], getStatusColor: (s:string)=>string }) {
+function BookingCard({
+    event,
+    invoices,
+    getStatusColor,
+    formatDeliveryStatus,
+    onView,
+}: {
+    event: Event
+    invoices?: Invoice[]
+    getStatusColor: (s: string) => string
+    formatDeliveryStatus: (status?: string) => string
+    onView: () => void
+}) {
     const mainInvoice = invoices && invoices.length > 0 ? invoices[0] : null;
 
     return (
-        <div className="p-6 rounded-3xl border border-slate-200 bg-slate-50 hover:shadow-md transition-shadow group">
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex gap-4 items-start">
+        <div className="group rounded-3xl border border-slate-200 bg-slate-50 p-5 transition-shadow hover:shadow-md sm:p-6">
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-4">
                     <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
                         <Calendar className="w-6 h-6 text-primary" />
                     </div>
@@ -488,15 +655,19 @@ function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoic
                         </p>
                     </div>
                 </div>
-                <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${getStatusColor(event.status)}`}>
+                <span className={`self-start rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest ${getStatusColor(event.status)}`}>
                     {event.status}
                 </span>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4 mt-6">
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <div className="flex items-start gap-2">
                     <MapPin className="w-4 h-4 text-slate-400 mt-1" />
                     <p className="text-sm text-slate-600">{event.venueAddress || 'No venue provided'}</p>
+                </div>
+                <div className="flex items-start gap-2">
+                    <Briefcase className="w-4 h-4 text-slate-400 mt-1" />
+                    <p className="text-sm text-slate-600">Delivery status: <strong>{formatDeliveryStatus(event.deliveryStatus)}</strong></p>
                 </div>
                 {mainInvoice && (
                     <div className="flex items-start gap-2">
@@ -506,8 +677,8 @@ function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoic
                 )}
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-200 flex justify-end">
-                <button className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
+            <div className="mt-4 flex justify-end border-t border-slate-200 pt-4">
+                <button onClick={onView} className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
                      View Complete Details
                 </button>
             </div>
@@ -515,10 +686,22 @@ function BookingCard({ event, invoices, getStatusColor }: { event: Event, invoic
     );
 }
 
-function QuoteCard({ quote, getStatusColor }: { quote: Quote, getStatusColor: (s:string)=>string }) {
+function QuoteCard({
+    quote,
+    getStatusColor,
+    onAccept,
+    isAccepting,
+}: {
+    quote: Quote
+    getStatusColor: (s: string) => string
+    onAccept: (quote: Quote) => Promise<void>
+    isAccepting: boolean
+}) {
+    const [isConfirming, setIsConfirming] = useState(false);
+
     return (
-        <div className="p-6 rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-2 h-full bg-primary/20"></div>
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+            <div className={`absolute top-0 left-0 w-2 h-full ${quote.status === QuoteStatus.Sent ? 'bg-indigo-500' : 'bg-primary/20'}`}></div>
             
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex gap-4">
@@ -529,12 +712,12 @@ function QuoteCard({ quote, getStatusColor }: { quote: Quote, getStatusColor: (s
                         <h3 className="font-black text-ocean-deep text-lg flex items-center gap-2">
                             {quote.eventType ? quote.eventType.charAt(0).toUpperCase() + quote.eventType.slice(1) : 'Rental'} Request
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(quote.status)}`}>
-                                {quote.status}
+                                {quote.status === QuoteStatus.Drafting ? 'Reviewing' : quote.status}
                             </span>
                         </h3>
                         <p className="text-slate-400 text-sm mt-1 font-medium">Requested on {format(new Date(quote.createdAt), 'PPP')}</p>
                         
-                        <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {quote.eventDate && (
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-400 uppercase font-bold">Event Date</p>
@@ -557,19 +740,49 @@ function QuoteCard({ quote, getStatusColor }: { quote: Quote, getStatusColor: (s
                     </div>
                 </div>
 
-                <div className="text-right flex flex-col items-end justify-between h-full min-h-[120px]">
-                    <div className="bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 inline-block min-w-[140px]">
+                    <div className="flex min-h-[120px] flex-col justify-between gap-4 text-left md:items-end md:text-right">
+                    <div className="inline-block min-w-[140px] rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
                          <p className="text-xs text-slate-400 uppercase font-bold mb-1 border-b border-slate-200 pb-1">Quote Total</p>
                          <p className="text-2xl font-black text-ocean-deep">
-                             {quote.total > 0 ? `$${quote.total.toFixed(2)}` : 'Pending'}
+                             {(quote.status === QuoteStatus.Pending || quote.status === QuoteStatus.Drafting) ? 'Pending Review' : (quote.total > 0 ? `$${quote.total.toFixed(2)}` : 'Pending')}
                          </p>
                     </div>
                     
-                    {quote.pdfUrl && (
-                        <a href={quote.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline mt-4 inline-block">
-                            Download PDF Version
-                        </a>
-                    )}
+                    <div className="mt-4 flex flex-col gap-2 md:items-end">
+                        {quote.status === QuoteStatus.Sent && (
+                            isConfirming ? (
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <button
+                                        onClick={() => setIsConfirming(false)}
+                                        className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => onAccept(quote).finally(() => setIsConfirming(false))}
+                                        disabled={isAccepting}
+                                        className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2"
+                                    >
+                                        {isAccepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                        Confirm Acceptance
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setIsConfirming(true)}
+                                    className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2"
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    Accept Quote
+                                </button>
+                            )
+                        )}
+                        {quote.pdfUrl && (
+                            <a href={quote.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline inline-block">
+                                Download PDF Version
+                            </a>
+                        )}
+                    </div>
                 </div>
             </div>
             

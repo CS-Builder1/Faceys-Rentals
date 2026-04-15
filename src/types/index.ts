@@ -36,10 +36,11 @@ export enum DeliveryStatus {
 }
 
 export enum QuoteStatus {
-    Sent = 'sent',
-    Reviewed = 'reviewed',
-    Accepted = 'accepted',
-    Expired = 'expired',
+    Pending = 'pending',       // Submitted by customer (Quote Request)
+    Drafting = 'drafting',     // Patrick is working on it
+    Sent = 'sent',             // Official quote emailed to client
+    Accepted = 'accepted',     // Client approved it
+    Expired = 'expired',       // Quote expired
 }
 
 export enum InvoiceStatus {
@@ -147,6 +148,9 @@ export interface InventoryItem {
 export interface Event {
     id: string;
     clientId: string;
+    clientName?: string;
+    clientEmail?: string;
+    sourceQuoteId?: string;
     eventDate: Date;
     startTime: string;
     endTime: string;
@@ -186,12 +190,15 @@ export interface Quote {
     customerName?: string;
     customerEmail?: string;
     customerPhone?: string;
+    company?: string;
     eventDate?: string;
     eventType?: string;
     guestCount?: number;
     venue?: string;
     notes?: string;
     items?: any[];
+    followUpCount?: number;
+    lastContactedAt?: Date;
 }
 
 export interface Invoice {
@@ -339,4 +346,3 @@ export interface SiteContent {
         alt: string;
     }[];
 }
-

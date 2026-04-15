@@ -49,7 +49,7 @@ export default function AddClientModal({ isOpen, onClose, onSuccess }: AddClient
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 text-ocean-deep dark:text-white">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md overflow-hidden shadow-xl border border-slate-200 dark:border-white/10">
+            <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900">
                 <div className="flex justify-between items-center p-6 border-b dark:border-white/10">
                     <h2 className="text-xl font-bold">Add New Client</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
@@ -57,7 +57,7 @@ export default function AddClientModal({ isOpen, onClose, onSuccess }: AddClient
                     </button>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                <form onSubmit={handleSubmit} className="custom-scrollbar max-h-[70vh] space-y-4 overflow-y-auto p-5 sm:p-6">
                     {error && (
                         <div className="p-3 bg-red-100/50 text-red-600 rounded-xl text-sm font-bold border border-red-200">
                             {error}
@@ -130,7 +130,7 @@ export default function AddClientModal({ isOpen, onClose, onSuccess }: AddClient
                         />
                     </div>
 
-                    <div className="pt-6 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-slate-900 -mx-6 px-6 pb-2">
+                    <div className="sticky bottom-0 -mx-5 flex justify-end gap-3 bg-white px-5 pb-2 pt-6 dark:bg-slate-900 sm:-mx-6 sm:px-6">
                         <button
                             type="button"
                             onClick={onClose}

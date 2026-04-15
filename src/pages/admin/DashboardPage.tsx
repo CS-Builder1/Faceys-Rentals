@@ -5,7 +5,7 @@ import { quoteService } from '../../services/quoteService'
 import { eventService } from '../../services/eventService'
 import { invoiceService } from '../../services/invoiceService'
 import { Quote, Event, Invoice, QuoteStatus, InvoiceStatus, EventStatus, UserRole } from '../../types'
-import { format, isThisMonth, subMonths, isSameMonth } from 'date-fns'
+import { format, isSameMonth, isThisMonth, subMonths } from 'date-fns'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -20,6 +20,8 @@ import {
     ArcElement,
 } from 'chart.js'
 import { Bar, Line, Doughnut } from 'react-chartjs-2'
+import { logger } from '../../utils/logger'
+import { getHoursSince, isQuoteFollowUpOverdue } from '../../utils/quoteWorkflow'
 
 ChartJS.register(
     CategoryScale,
@@ -39,11 +41,12 @@ export default function DashboardPage() {
     const [quotes, setQuotes] = useState<Quote[]>([])
     const [events, setEvents] = useState<Event[]>([])
     const [invoices, setInvoices] = useState<Invoice[]>([])
+    const [isActivityOpen, setIsActivityOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
         const fetchData = async () => {
-            console.log("[DashboardPage] Fetching data...")
+            logger.debug("[DashboardPage] Fetching data...")
             setIsLoading(true)
             try {
                 const [fetchedQuotes, fetchedEvents, fetchedInvoices] = await Promise.all([
@@ -51,7 +54,7 @@ export default function DashboardPage() {
                     eventService.getAll(),
                     invoiceService.getAll()
                 ])
-                console.log("[DashboardPage] Data fetched successfully", { 
+                logger.debug("[DashboardPage] Data fetched successfully", { 
                     quotes: fetchedQuotes.length, 
                     events: fetchedEvents.length, 
                     invoices: fetchedInvoices.length 
@@ -60,7 +63,7 @@ export default function DashboardPage() {
                 setEvents(fetchedEvents || [])
                 setInvoices(fetchedInvoices || [])
             } catch (error) {
-                console.error("[DashboardPage] Critical fetch error:", error)
+                logger.error("[DashboardPage] Critical fetch error:", error)
             } finally {
                 setIsLoading(false)
             }
@@ -82,7 +85,7 @@ export default function DashboardPage() {
     }
 
     // --- Derived Data ---
-    const newRequests = quotes.filter(q => q.status === QuoteStatus.Sent).length
+    const newRequests = quotes.filter(q => q.status === QuoteStatus.Pending).length
     const revenueMTD = invoices
         .filter(i => i.status === InvoiceStatus.Paid && i.createdAt && isThisMonth(i.createdAt))
         .reduce((sum, i) => sum + i.total, 0)
@@ -106,10 +109,16 @@ export default function DashboardPage() {
         date: req.createdAt ? format(req.createdAt, 'MMM dd, yyyy') : 'Recently',
         type: req.eventType || 'Rental',
         status: req.status.charAt(0).toUpperCase() + req.status.slice(1),
-        statusColor: req.status === QuoteStatus.Sent ? 'bg-amber-100 text-amber-700' :
+        statusColor: req.status === QuoteStatus.Pending ? 'bg-amber-100 text-amber-700' :
+            req.status === QuoteStatus.Sent ? 'bg-blue-100 text-blue-700' :
             req.status === QuoteStatus.Accepted ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700',
         initials: (req.customerName || 'O').substring(0, 2).toUpperCase()
     }))
+
+    const followUpRequests = quotes
+        .filter((q) => isQuoteFollowUpOverdue(q))
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .slice(0, 5)
 
     const last6Months = Array.from({ length: 6 }).map((_, i) => subMonths(new Date(), 5 - i))
 
@@ -144,8 +153,24 @@ export default function DashboardPage() {
         }))
     ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 3)
 
+    const fullActivityFeed = [
+        ...quotes.map(q => ({
+            id: `q-${q.id}`,
+            date: new Date(q.createdAt),
+            title: `New quote request from ${q.customerName || 'Online Client'}`,
+            color: 'bg-primary'
+        })),
+        ...invoices.filter(i => i.status === InvoiceStatus.Paid).map(i => ({
+            id: `i-${i.id}`,
+            date: new Date(i.createdAt),
+            title: `Invoice #${i.invoiceNumber || i.id.substring(0, 8)} marked as PAID`,
+            color: 'bg-emerald-500'
+        }))
+    ].sort((a, b) => b.date.getTime() - a.date.getTime())
+
     const conversionData = [
-        { name: 'Sent', value: quotes.filter(q => q.status === QuoteStatus.Sent).length, fill: '#8B0000' },
+        { name: 'Pending', value: quotes.filter(q => q.status === QuoteStatus.Pending).length, fill: '#8B0000' },
+        { name: 'Sent', value: quotes.filter(q => q.status === QuoteStatus.Sent).length, fill: '#EAB308' },
         { name: 'Accepted', value: quotes.filter(q => q.status === QuoteStatus.Accepted).length, fill: '#059669' },
         { name: 'Events', value: events.length, fill: '#1E293B' },
     ]
@@ -163,29 +188,58 @@ export default function DashboardPage() {
         
     const COLORS = ['#8B0000', '#2E4053', '#B22222', '#1E293B', '#708090', '#A52A2A']
 
+    const handleExportDashboard = () => {
+        const snapshot = {
+            generatedAt: new Date().toISOString(),
+            summary: {
+                newRequests,
+                revenueMTD,
+                upcomingEvents,
+                unpaidInvoicesCount,
+                unpaidInvoicesTotal,
+            },
+            quotes,
+            events,
+            invoices,
+        }
+
+        const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `dashboard-export-${format(new Date(), 'yyyy-MM-dd')}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+    }
+
     return (
-        <div className="p-8 md:p-12 space-y-12 animate-in fade-in duration-700">
+        <div className="page-shell page-stack animate-in fade-in duration-700">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="page-header">
                 <div>
                     <h2 className="text-3xl font-black text-ocean-deep dark:text-white">Admin <span className="text-primary tracking-widest uppercase text-2xl">Dashboard</span></h2>
                     <p className="text-slate-500 font-medium">Welcome back, Patrick. Here's what's happening today.</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <button className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold flex items-center gap-2 hover:border-primary transition-all shadow-sm">
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+                    <button
+                        onClick={handleExportDashboard}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold shadow-sm transition-all hover:border-primary dark:border-white/10 dark:bg-white/5"
+                    >
                         <span className="material-symbols-outlined text-sm">download</span>
                         Export Data
                     </button>
-                    <Link to="/admin/inventory" className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-all">
+                    <Link to="/admin/inventory" className="rounded-xl bg-primary px-6 py-3 text-center text-sm font-bold text-white shadow-xl shadow-primary/30 transition-all hover:scale-105">
                         Create New Listing
                     </Link>
                 </div>
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
                 {stats.map((stat) => (
-                    <div key={stat.label} className="bg-white dark:bg-white/5 p-8 rounded-[2rem] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 hover:shadow-xl transition-all group">
+                    <div key={stat.label} className="group space-y-4 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-xl dark:border-white/10 dark:bg-white/5 sm:rounded-[2rem] sm:p-8">
                         <div className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
                             <span className="material-symbols-outlined text-2xl">{stat.icon}</span>
                         </div>
@@ -201,37 +255,55 @@ export default function DashboardPage() {
                 ))}
             </div>
 
+            <div className="flex flex-col justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 md:flex-row md:items-center">
+                <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-amber-700">Action Queue</p>
+                    <p className="text-sm text-amber-900 font-medium mt-1">
+                        {followUpRequests.length === 0
+                            ? 'No quote follow-ups are currently overdue.'
+                            : `${followUpRequests.length} quote follow-up${followUpRequests.length > 1 ? 's are' : ' is'} overdue (24h+).`}
+                    </p>
+                </div>
+                <Link
+                    to="/admin/quotes?filter=needs_followup"
+                    className="px-4 py-2.5 bg-amber-600 text-white rounded-xl text-sm font-bold hover:bg-amber-700 transition-colors inline-flex items-center gap-2 w-fit"
+                >
+                    Open Follow-up Queue
+                    <span className="material-symbols-outlined text-base">arrow_forward</span>
+                </Link>
+            </div>
+
             {/* Content Rows */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
                 {/* Main Content Area (col-span-2) */}
                 <div className="xl:col-span-2 space-y-8">
                     {/* Recent Requests */}
-                    <div className="bg-white dark:bg-white/5 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden">
-                        <div className="p-8 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-white/50 dark:bg-transparent backdrop-blur-sm">
+                    <div className="panel-card-strong overflow-hidden">
+                        <div className="flex flex-col gap-3 border-b border-slate-100 bg-white/50 p-6 backdrop-blur-sm dark:border-white/5 dark:bg-transparent sm:flex-row sm:items-center sm:justify-between sm:p-8">
                             <h3 className="text-xl font-bold text-ocean-deep dark:text-white">Recent Quote Requests</h3>
                             <Link to="/admin/quotes" className="text-primary text-sm font-bold hover:gap-2 transition-all flex items-center gap-1">
                                 View All <span className="material-symbols-outlined text-sm">arrow_forward</span>
                             </Link>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                        <div className="data-table-shell">
+                            <table className="data-table">
                                 <thead className="bg-slate-50 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                     <tr>
-                                        <th className="px-8 py-5">Client</th>
-                                        <th className="px-8 py-5">Event Date</th>
-                                        <th className="px-8 py-5">Type</th>
-                                        <th className="px-8 py-5">Status</th>
-                                        <th className="px-8 py-5 text-right">Action</th>
+                                        <th>Client</th>
+                                        <th>Event Date</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th className="text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                                     {recentRequests.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="px-8 py-6 text-center text-slate-500">No recent requests found.</td>
+                                            <td colSpan={5} className="text-center text-slate-500">No recent requests found.</td>
                                         </tr>
                                     ) : recentRequests.map((req) => (
                                         <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
-                                            <td className="px-8 py-6">
+                                            <td>
                                                 <div className="flex items-center gap-4">
                                                     <div className="size-10 bg-ocean-deep/10 dark:bg-white/10 rounded-full flex items-center justify-center text-ocean-deep dark:text-white text-xs font-black">
                                                         {req.initials}
@@ -242,14 +314,14 @@ export default function DashboardPage() {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-sm font-bold text-slate-600 dark:text-white/70">{req.date}</td>
-                                            <td className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">{req.type}</td>
-                                            <td className="px-8 py-6">
+                                            <td className="text-sm font-bold text-slate-600 dark:text-white/70">{req.date}</td>
+                                            <td className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{req.type}</td>
+                                            <td>
                                                 <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${req.statusColor}`}>
                                                     {req.status}
                                                 </span>
                                             </td>
-                                            <td className="px-8 py-6 text-right">
+                                            <td className="text-right">
                                                 <button className="text-slate-300 hover:text-primary transition-colors">
                                                     <span className="material-symbols-outlined">more_horiz</span>
                                                 </button>
@@ -261,9 +333,33 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
+                    {followUpRequests.length > 0 && (
+                        <div className="panel-card-strong overflow-hidden">
+                            <div className="flex flex-col gap-2 border-b border-slate-100 p-6 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between">
+                                <h3 className="text-lg font-bold text-ocean-deep dark:text-white">Overdue Follow-ups</h3>
+                                <Link to="/admin/quotes?filter=needs_followup" className="text-primary text-xs font-bold uppercase tracking-wider">
+                                    View Queue
+                                </Link>
+                            </div>
+                            <div className="divide-y divide-slate-100 dark:divide-white/5">
+                                {followUpRequests.map((q) => (
+                                    <div key={q.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="text-sm font-bold text-ocean-deep dark:text-white">{q.customerName || 'Online Request'}</p>
+                                            <p className="text-xs text-slate-500">{q.customerEmail || 'No email provided'}</p>
+                                        </div>
+                                        <span className="text-xs font-black uppercase tracking-wider text-red-600 bg-red-50 border border-red-200 px-3 py-1 rounded-full">
+                                            {getHoursSince(new Date(q.createdAt))}h old
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Quote Conversion Chart */}
-                    <div className="bg-white dark:bg-white/5 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden p-8 space-y-6">
-                        <div className="flex justify-between items-center">
+                    <div className="panel-card-strong space-y-6 overflow-hidden p-5 sm:p-8">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <h3 className="text-xl font-bold text-ocean-deep dark:text-white">Conversion Pipeline</h3>
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inquiries vs. Bookings</span>
                         </div>
@@ -299,7 +395,7 @@ export default function DashboardPage() {
                                 </div>
                             )}
                         </div>
-                        <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 dark:border-white/5">
+                        <div className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 dark:border-white/5 sm:grid-cols-3">
                             {conversionData.map(item => (
                                 <div key={item.name} className="text-center">
                                     <span className="block text-xl font-black text-ocean-deep dark:text-white">{item.value}</span>
@@ -313,8 +409,8 @@ export default function DashboardPage() {
                 {/* Revenue Trend / Quick Actions Sidebar */}
                 <div className="space-y-8">
                     {/* Revenue Trend */}
-                    <div className="bg-ocean-deep dark:bg-white/5 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl border border-white/10">
-                        <div className="flex justify-between items-center">
+                    <div className="space-y-6 rounded-[2rem] border border-white/10 bg-ocean-deep p-5 text-white shadow-2xl dark:bg-white/5 sm:rounded-[2.5rem] sm:p-8">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <h3 className="font-bold uppercase tracking-widest text-xs opacity-60">Revenue Performance</h3>
                             <span className="text-[10px] font-bold px-2 py-1 bg-white/10 rounded-full">Last 6 Months</span>
                         </div>
@@ -363,7 +459,7 @@ export default function DashboardPage() {
                                 </div>
                             )}
                         </div>
-                        <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+                        <div className="flex items-center justify-between border-t border-white/10 pt-4">
                             <div>
                                 <span className="block text-[10px] font-bold opacity-60 uppercase">Total Period</span>
                                 <span className="text-xl font-black">${(totalPeriodRevenue / 1000).toFixed(1)}K</span>
@@ -378,7 +474,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Recent Activity */}
-                    <div className="bg-white dark:bg-white/5 rounded-[2.5rem] p-8 border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+                    <div className="panel-card space-y-6 p-5 sm:p-8">
                         <h3 className="text-sm font-black text-ocean-deep dark:text-white uppercase tracking-widest">Recent Activity</h3>
                         <div className="space-y-6">
                             {activityFeed.length === 0 ? (
@@ -399,13 +495,16 @@ export default function DashboardPage() {
                                 ))
                             )}
                         </div>
-                        <button className="w-full py-4 border border-slate-200 dark:border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:border-primary hover:text-primary transition-all">
+                        <button
+                            onClick={() => setIsActivityOpen(true)}
+                            className="w-full py-4 border border-slate-200 dark:border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:border-primary hover:text-primary transition-all"
+                        >
                             View Activity Log
                         </button>
                     </div>
 
                     {/* Category Popularity Chart */}
-                    <div className="bg-white dark:bg-white/5 rounded-[2.5rem] p-8 border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+                    <div className="panel-card space-y-6 p-5 sm:p-8">
                         <h3 className="text-sm font-black text-ocean-deep dark:text-white uppercase tracking-widest">Offer Breakdown</h3>
                         <div className="h-64 w-full flex items-center justify-center">
                             {categoryData.length > 0 ? (
@@ -439,6 +538,43 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {isActivityOpen && (
+                <div className="fixed inset-0 z-50 bg-ocean-deep/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50 px-5 py-5 dark:border-white/10 dark:bg-slate-800/50 sm:px-8 sm:py-6">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-primary">Activity Log</p>
+                                <h3 className="text-2xl font-black text-ocean-deep dark:text-white mt-1">Recent revenue and quote activity</h3>
+                            </div>
+                            <button
+                                onClick={() => setIsActivityOpen(false)}
+                                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <div className="max-h-[70vh] space-y-5 overflow-y-auto p-5 sm:p-8">
+                            {fullActivityFeed.length === 0 ? (
+                                <p className="text-sm text-slate-500">No activity has been logged yet.</p>
+                            ) : (
+                                fullActivityFeed.map((activity) => (
+                                    <div key={activity.id} className="flex gap-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-5">
+                                        <div className={`size-3 rounded-full mt-1.5 shrink-0 ${activity.color}`} />
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-semibold text-slate-700 dark:text-white/80">{activity.title}</p>
+                                            <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                                                {format(activity.date, 'MMM dd, yyyy h:mm a')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

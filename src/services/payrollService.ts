@@ -98,11 +98,11 @@ export const payrollService = {
         await updateDoc(doc(db, PAY_PERIODS_COLLECTION, id), payPeriodToFirestoreData({ status, updatedAt: new Date() }))
     },
 
-    async deletePayPeriod(_id: string): Promise<void> {
+    async deletePayPeriod(id: string): Promise<void> {
         // Technically should use writeBatch to delete stubs as well, but for simplicity:
         // (Firestore doesn't auto-cascade). We assume user can only delete if empty or 'open'.
         // This usually isn't standard in production (better to disable/archive) but we'll leave as a placeholder if needed.
-        throw new Error("Pay period deletion not implemented. Mark as closed/archived instead.")
+        throw new Error(`Pay period deletion not implemented for ${id}. Mark as closed/archived instead.`)
     },
 
     // ---- Pay Stubs ----

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { clientService } from '../../services/clientService'
 import { Client } from '../../types'
 import { format } from 'date-fns'
@@ -19,188 +19,179 @@ export default function CustomersPage() {
             const fetchedClients = await clientService.getAll()
             setClients(fetchedClients)
         } catch (error) {
-            console.error("Error fetching clients:", error)
+            console.error('Error fetching clients:', error)
         } finally {
             setIsLoading(false)
         }
     }
 
     useEffect(() => {
-        fetchClients()
+        void fetchClients()
     }, [])
 
     const handleDelete = async (id: string, name: string) => {
         if (!window.confirm(`Are you sure you want to delete client "${name}"? This will remove all their records.`)) return
         try {
             await clientService.remove(id)
-            fetchClients()
+            await fetchClients()
         } catch (err) {
             console.error(err)
             alert('Failed to delete client.')
         }
     }
 
-    const filteredClients = clients.filter(c => 
-        c.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredClients = clients.filter((client) =>
+        client.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
     const totalClients = clients.length
     const totalLTV = clients.reduce((acc, curr) => acc + (curr.lifetimeValue || 0), 0)
-    const newThisMonth = clients.filter(c => c.createdAt && new Date(c.createdAt).getMonth() === new Date().getMonth() && new Date(c.createdAt).getFullYear() === new Date().getFullYear()).length
+    const newThisMonth = clients.filter((client) => {
+        if (!client.createdAt) return false
+        const createdAt = new Date(client.createdAt)
+        const now = new Date()
+        return createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear()
+    }).length
 
-    // Sync selected client if updated
     useEffect(() => {
         if (selectedClient) {
-            const updated = clients.find(c => c.id === selectedClient.id)
+            const updated = clients.find((client) => client.id === selectedClient.id)
             if (updated) setSelectedClient(updated)
         }
-    }, [clients])
+    }, [clients, selectedClient])
 
     return (
-        <div className="p-8 md:p-12 space-y-12">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="page-shell page-stack">
+            <div className="page-header">
                 <div>
-                    <h2 className="text-3xl font-black text-ocean-deep dark:text-white">Client <span className="text-primary tracking-widest uppercase text-2xl">Directory</span></h2>
-                    <p className="text-slate-500 font-medium">Manage your customer relationships and contact information.</p>
+                    <h2 className="text-3xl font-black text-ocean-deep dark:text-white">
+                        Client <span className="text-2xl uppercase tracking-widest text-primary">Directory</span>
+                    </h2>
+                    <p className="font-medium text-slate-500">Manage your customer relationships and contact information.</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                        <input 
-                            type="text" 
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                    <div className="group relative w-full sm:w-72">
+                        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-primary" />
+                        <input
+                            type="text"
                             placeholder="Search clients..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-11 pr-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm outline-none focus:border-primary transition-all w-64 shadow-sm"
+                            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition-all focus:border-primary dark:border-white/10 dark:bg-white/5"
                         />
                     </div>
-                    <button 
+                    <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-all flex items-center gap-2"
+                        className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow-xl shadow-primary/30 transition-all hover:scale-105"
                     >
-                        <UserPlus className="w-4 h-4" />
+                        <UserPlus className="h-4 w-4" />
                         Add New Client
                     </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between hover:border-primary/50 transition-colors">
-                    <div>
-                        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Total Clients</p>
-                        <h3 className="text-3xl font-black text-ocean-deep dark:text-white">{totalClients}</h3>
-                    </div>
-                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                        <UserPlus className="w-6 h-6" />
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between hover:border-emerald-500/50 transition-colors">
-                    <div>
-                        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Lifetime Revenue</p>
-                        <h3 className="text-3xl font-black text-emerald-600">${totalLTV.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
-                    </div>
-                    <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600">
-                        <Briefcase className="w-6 h-6" />
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between hover:border-blue-500/50 transition-colors">
-                    <div>
-                        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">New This Month</p>
-                        <h3 className="text-3xl font-black text-ocean-deep dark:text-white">{newThisMonth}</h3>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
-                        <UserPlus className="w-6 h-6" />
-                    </div>
-                </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:gap-6">
+                <StatCard label="Total Clients" value={totalClients.toString()} tone="primary" icon={<UserPlus className="h-6 w-6" />} />
+                <StatCard
+                    label="Lifetime Revenue"
+                    value={`$${totalLTV.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    tone="emerald"
+                    icon={<Briefcase className="h-6 w-6" />}
+                />
+                <StatCard label="New This Month" value={newThisMonth.toString()} tone="blue" icon={<UserPlus className="h-6 w-6" />} />
             </div>
 
-            <div className="bg-white dark:bg-white/5 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left font-medium">
-                        <thead className="bg-slate-50 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <div className="panel-card-strong overflow-hidden">
+                <div className="data-table-shell">
+                    <table className="data-table">
+                        <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:bg-white/5">
                             <tr>
-                                <th className="px-8 py-5">Client Name</th>
-                                <th className="px-8 py-5">Contact Details</th>
-                                <th className="px-8 py-5">Billing Address</th>
-                                <th className="px-8 py-5">Lifetime Value</th>
-                                <th className="px-8 py-5">Joined</th>
-                                <th className="px-8 py-5 text-right">Action</th>
+                                <th>Client Name</th>
+                                <th>Contact Details</th>
+                                <th>Billing Address</th>
+                                <th>Lifetime Value</th>
+                                <th>Joined</th>
+                                <th className="text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-8 py-12 text-center text-slate-500">
+                                    <td colSpan={6} className="py-12 text-center text-slate-500">
                                         <div className="flex flex-col items-center gap-2">
-                                            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                                             <span>Loading clients...</span>
                                         </div>
                                     </td>
                                 </tr>
                             ) : filteredClients.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-8 py-12 text-center text-slate-500 italic">
+                                    <td colSpan={6} className="py-12 text-center italic text-slate-500">
                                         {searchTerm ? `No results found for "${searchTerm}"` : 'No clients found.'}
                                     </td>
                                 </tr>
                             ) : (
-                                filteredClients.map(client => (
-                                    <tr 
-                                        key={client.id} 
+                                filteredClients.map((client) => (
+                                    <tr
+                                        key={client.id}
                                         onClick={() => setSelectedClient(client)}
-                                        className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer"
+                                        className="group cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-white/5"
                                     >
-                                        <td className="px-8 py-6">
+                                        <td>
                                             <div className="flex items-center gap-4">
-                                                <div className="size-10 bg-ocean-deep/10 dark:bg-white/10 rounded-full flex items-center justify-center text-ocean-deep dark:text-white text-xs font-black">
+                                                <div className="flex size-10 items-center justify-center rounded-full bg-ocean-deep/10 text-xs font-black text-ocean-deep dark:bg-white/10 dark:text-white">
                                                     {client.contactName.substring(0, 2).toUpperCase()}
                                                 </div>
                                                 <div className="space-y-1">
                                                     <span className="block text-sm font-bold text-ocean-deep dark:text-white">{client.contactName}</span>
-                                                    {client.businessName && <span className="text-[10px] text-primary font-black uppercase tracking-widest">{client.businessName}</span>}
+                                                    {client.businessName && (
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">{client.businessName}</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-8 py-6">
+                                        <td>
                                             <div className="space-y-1">
-                                                <span className="text-sm font-medium text-slate-600 dark:text-white/70 block">{client.email}</span>
-                                                <span className="text-xs text-slate-400 block">{client.phone}</span>
+                                                <span className="block text-sm font-medium text-slate-600 dark:text-white/70">{client.email}</span>
+                                                <span className="block text-xs text-slate-400">{client.phone}</span>
                                             </div>
                                         </td>
-                                        <td className="px-8 py-6">
-                                            <span className="text-xs text-slate-500 max-w-[200px] block truncate" title={client.billingAddress}>
+                                        <td>
+                                            <span className="block max-w-[220px] truncate text-xs text-slate-500" title={client.billingAddress}>
                                                 {client.billingAddress || 'N/A'}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-6">
-                                            <span className="text-sm font-bold text-emerald-600">${(client.lifetimeValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <td>
+                                            <span className="text-sm font-bold text-emerald-600">
+                                                ${(client.lifetimeValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
                                         </td>
-                                        <td className="px-8 py-6 text-xs text-slate-500 font-medium">
+                                        <td className="text-xs font-medium text-slate-500">
                                             {client.createdAt ? format(new Date(client.createdAt), 'MMM dd, yyyy') : 'N/A'}
                                         </td>
-                                        <td className="px-8 py-6 text-right">
+                                        <td className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button 
+                                                <button
                                                     onClick={(e) => {
                                                         e.stopPropagation()
                                                         setSelectedClient(client)
                                                     }}
-                                                    className="p-2.5 bg-slate-100 dark:bg-white/5 text-ocean-deep dark:text-white hover:bg-primary hover:text-white rounded-xl transition-all shadow-sm"
+                                                    className="rounded-xl bg-slate-100 p-2.5 text-ocean-deep shadow-sm transition-all hover:bg-primary hover:text-white dark:bg-white/5 dark:text-white"
                                                     title="Edit Client"
                                                 >
-                                                    <Edit3 className="w-4 h-4" />
+                                                    <Edit3 className="h-4 w-4" />
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={(e) => {
                                                         e.stopPropagation()
-                                                        handleDelete(client.id, client.contactName)
+                                                        void handleDelete(client.id, client.contactName)
                                                     }}
-                                                    className="p-2.5 bg-red-50 dark:bg-red-500/10 text-red-600 hover:bg-red-600 hover:text-white rounded-xl transition-all shadow-sm"
+                                                    className="rounded-xl bg-red-50 p-2.5 text-red-600 shadow-sm transition-all hover:bg-red-600 hover:text-white dark:bg-red-500/10"
                                                     title="Delete Client"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="h-4 w-4" />
                                                 </button>
                                             </div>
                                         </td>
@@ -212,10 +203,10 @@ export default function CustomersPage() {
                 </div>
             </div>
 
-            <AddClientModal 
-                isOpen={isAddModalOpen} 
-                onClose={() => setIsAddModalOpen(false)} 
-                onSuccess={fetchClients} 
+            <AddClientModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                onSuccess={fetchClients}
             />
 
             <CustomerDetailDrawer
@@ -224,6 +215,36 @@ export default function CustomersPage() {
                 onClose={() => setSelectedClient(null)}
                 onUpdate={fetchClients}
             />
+        </div>
+    )
+}
+
+function StatCard({
+    label,
+    value,
+    tone,
+    icon,
+}: {
+    label: string
+    value: string
+    tone: 'primary' | 'emerald' | 'blue'
+    icon: ReactNode
+}) {
+    const toneClasses = {
+        primary: 'border-primary/20 bg-primary/5 text-primary',
+        emerald: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600',
+        blue: 'border-blue-500/20 bg-blue-500/5 text-blue-500',
+    }[tone]
+
+    return (
+        <div className="panel-card flex items-center justify-between gap-4 p-6">
+            <div>
+                <p className="mb-1 text-sm font-bold uppercase tracking-wider text-slate-500">{label}</p>
+                <h3 className="text-3xl font-black text-ocean-deep dark:text-white">{value}</h3>
+            </div>
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl border ${toneClasses}`}>
+                {icon}
+            </div>
         </div>
     )
 }

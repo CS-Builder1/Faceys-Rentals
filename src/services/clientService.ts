@@ -6,7 +6,7 @@ import {
     doc,
     getDocs,
     getDoc,
-    addDoc,
+    setDoc,
     updateDoc,
     deleteDoc,
     query,
@@ -46,7 +46,6 @@ function fromFirestore(id: string, data: DocumentData): Client {
 
 function toFirestoreData(client: Partial<Client>): DocumentData {
     const data: DocumentData = { ...client }
-    delete data.id
     if (data.createdAt instanceof Date) data.createdAt = toTimestamp(data.createdAt)
     return data
 }
@@ -71,8 +70,14 @@ export const clientService = {
     },
 
     async create(client: Omit<Client, 'id'>): Promise<string> {
-        const data = toFirestoreData({ ...client, createdAt: new Date(), lifetimeValue: 0 })
-        const docRef = await addDoc(ref, data)
+        const docRef = doc(ref)
+        const data = toFirestoreData({
+            ...client,
+            id: docRef.id,
+            createdAt: new Date(),
+            lifetimeValue: 0,
+        })
+        await setDoc(docRef, data)
         return docRef.id
     },
 

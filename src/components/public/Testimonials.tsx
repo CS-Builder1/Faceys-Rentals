@@ -36,17 +36,17 @@ const testimonials: Testimonial[] = [
 
 export default function Testimonials() {
     return (
-        <section className="py-24 bg-sand-warm/20 dark:bg-white/[0.02]">
-            <div className="max-w-7xl mx-auto px-6">
+        <section id="testimonials" className="bg-sand-warm/20 py-20 dark:bg-white/[0.02] sm:py-24">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 <div className="text-center mb-16 space-y-4">
-                    <h2 className="text-4xl font-extrabold text-ocean-deep dark:text-white">What Our <span className="text-primary italic">Clients Say</span></h2>
+                    <h2 className="text-3xl font-extrabold text-ocean-deep dark:text-white sm:text-4xl">What Our <span className="text-primary italic">Clients Say</span></h2>
                     <p className="text-slate-500 max-w-2xl mx-auto">Real stories from the beautiful celebrations we've been honored to be a part of.</p>
                     <div className="w-20 h-1.5 bg-primary mx-auto rounded-full"></div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-8">
                     {testimonials.map((t) => (
-                        <div key={t.id} className="bg-white dark:bg-background-dark p-8 rounded-[2rem] border border-slate-100 dark:border-white/10 shadow-xl hover:shadow-2xl transition-all duration-500 flex flex-col">
+                        <div key={t.id} className="flex flex-col rounded-[1.75rem] border border-slate-100 bg-white p-6 shadow-xl transition-all duration-500 hover:shadow-2xl dark:border-white/10 dark:bg-background-dark sm:rounded-[2rem] sm:p-8">
                             <div className="flex gap-1 text-gold-accent mb-6">
                                 {[...Array(t.rating)].map((_, i) => (
                                     <span key={i} className="material-symbols-outlined fill-current text-sm">star</span>

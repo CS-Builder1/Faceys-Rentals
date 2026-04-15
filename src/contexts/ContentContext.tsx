@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { contentService } from '../services/contentService'
+import { contentService, defaultContent } from '../services/contentService'
 import type { SiteContent } from '../types'
 
 interface ContentContextProps {
@@ -17,7 +17,7 @@ const ContentContext = createContext<ContentContextProps>({
 export const useContent = () => useContext(ContentContext)
 
 export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [content, setContent] = useState<SiteContent | null>(null)
+    const [content, setContent] = useState<SiteContent | null>(defaultContent)
     const [loading, setLoading] = useState(true)
 
     const fetchContent = async () => {
@@ -27,6 +27,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
             setContent(data)
         } catch (error) {
             console.error('Error fetching global content:', error)
+            setContent((current) => current ?? defaultContent)
         } finally {
             setLoading(false)
         }

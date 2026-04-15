@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { eventService } from '../../services/eventService'
 import { quoteService } from '../../services/quoteService'
 import { invoiceService } from '../../services/invoiceService'
@@ -28,6 +29,7 @@ interface CalendarItem extends BigCalendarEvent {
 
 export default function CalendarPage() {
     const [calendarEvents, setCalendarEvents] = useState<CalendarItem[]>([])
+    const [selectedItem, setSelectedItem] = useState<CalendarItem | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
@@ -44,8 +46,8 @@ export default function CalendarPage() {
 
                 // Map Events
                 events.forEach(e => {
-                    let start = new Date(e.eventDate)
-                    let end = new Date(e.eventDate)
+                    const start = new Date(e.eventDate)
+                    const end = new Date(e.eventDate)
                     
                     if (e.startTime) {
                         const [hours, minutes] = e.startTime.split(':')
@@ -129,6 +131,21 @@ export default function CalendarPage() {
             }
         }
     }
+
+    const getDetailLink = (item: CalendarItem) => {
+        if (item.type === 'quote') return '/admin/quotes'
+        if (item.type === 'invoice') return '/admin/invoices'
+        return '/admin'
+    }
+
+    const getTypeLabel = (item: CalendarItem) => {
+        if (item.type === 'quote') return 'Quote Request'
+        if (item.type === 'invoice') return 'Invoice Reminder'
+        return 'Booking'
+    }
+
+    const getDisplayDate = (item: CalendarItem) =>
+        format(item.start as Date, item.allDay ? 'PPP' : 'PPP p')
 
     return (
         <div className="p-8 md:p-12 space-y-8 flex flex-col h-[calc(100vh-64px)] overflow-hidden">
@@ -226,15 +243,110 @@ export default function CalendarPage() {
                             views={['month', 'week', 'day']}
                             defaultView="month"
                             tooltipAccessor="title"
-                            onSelectEvent={(event) => {
-                                console.log("Selected event:", event)
-                                // We can add a generic modal here to view details based on event.type
-                                alert(`Clicked ${event.type}: ${event.title}`)
-                            }}
+                            onSelectEvent={(event) => setSelectedItem(event as CalendarItem)}
                         />
                     </div>
                 )}
             </div>
+
+            {selectedItem && (
+                <div className="fixed inset-0 z-50 bg-ocean-deep/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden">
+                        <div className="px-8 py-6 border-b border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-slate-800/50 flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-widest text-primary">{getTypeLabel(selectedItem)}</p>
+                                <h3 className="text-2xl font-black text-ocean-deep dark:text-white mt-1">{selectedItem.title}</h3>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    {getDisplayDate(selectedItem)}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedItem(null)}
+                                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <div className="p-8 space-y-6">
+                            {selectedItem.type === 'event' && (
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Operational Status</p>
+                                        <p className="mt-3 text-sm font-bold text-ocean-deep dark:text-white capitalize">
+                                            {(selectedItem.originalData as AppEvent).status}
+                                        </p>
+                                        <p className="text-sm text-slate-500 mt-2">
+                                            Delivery: {(selectedItem.originalData as AppEvent).deliveryStatus.replace(/_/g, ' ')}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Venue</p>
+                                        <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
+                                            {(selectedItem.originalData as AppEvent).venueAddress || 'Venue not set'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedItem.type === 'quote' && (
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Customer</p>
+                                        <p className="mt-3 text-sm font-bold text-ocean-deep dark:text-white">
+                                            {(selectedItem.originalData as Quote).customerName || 'Online Request'}
+                                        </p>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            {(selectedItem.originalData as Quote).customerEmail || 'No email'}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Status</p>
+                                        <p className="mt-3 text-sm font-bold text-ocean-deep dark:text-white capitalize">
+                                            {(selectedItem.originalData as Quote).status}
+                                        </p>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            {(selectedItem.originalData as Quote).venue || 'Venue not set'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedItem.type === 'invoice' && (
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Invoice</p>
+                                        <p className="mt-3 text-sm font-bold text-ocean-deep dark:text-white">
+                                            {(selectedItem.originalData as Invoice).invoiceNumber}
+                                        </p>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            Status: {(selectedItem.originalData as Invoice).status}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl bg-slate-50 dark:bg-white/5 p-5 border border-slate-200 dark:border-white/10">
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Balance Due</p>
+                                        <p className="mt-3 text-sm font-bold text-ocean-deep dark:text-white">
+                                            ${(selectedItem.originalData as Invoice).balanceDue.toFixed(2)}
+                                        </p>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            Total: ${(selectedItem.originalData as Invoice).total.toFixed(2)}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end">
+                                <Link
+                                    to={getDetailLink(selectedItem)}
+                                    className="px-5 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20"
+                                >
+                                    Open Related Page
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

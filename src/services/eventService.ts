@@ -25,6 +25,9 @@ function eventFromFirestore(id: string, data: DocumentData): Event {
     return {
         id,
         clientId: data.clientId ?? '',
+        clientName: data.clientName,
+        clientEmail: data.clientEmail,
+        sourceQuoteId: data.sourceQuoteId,
         eventDate: toDate(data.eventDate),
         startTime: data.startTime ?? '',
         endTime: data.endTime ?? '',
@@ -54,15 +57,27 @@ export const eventService = {
     },
 
     async getByStatus(status: EventStatus): Promise<Event[]> {
-        const q = query(eventsRef, where('status', '==', status), orderBy('eventDate', 'desc'))
+        const q = query(eventsRef, where('status', '==', status))
         const snap = await getDocs(q)
-        return snap.docs.map((d) => eventFromFirestore(d.id, d.data()))
+        return snap.docs
+            .map((d) => eventFromFirestore(d.id, d.data()))
+            .sort((a, b) => b.eventDate.getTime() - a.eventDate.getTime())
     },
 
     async getByClient(clientId: string): Promise<Event[]> {
-        const q = query(eventsRef, where('clientId', '==', clientId), orderBy('eventDate', 'desc'))
+        const q = query(eventsRef, where('clientId', '==', clientId))
         const snap = await getDocs(q)
-        return snap.docs.map((d) => eventFromFirestore(d.id, d.data()))
+        return snap.docs
+            .map((d) => eventFromFirestore(d.id, d.data()))
+            .sort((a, b) => b.eventDate.getTime() - a.eventDate.getTime())
+    },
+
+    async getByClientEmail(clientEmail: string): Promise<Event[]> {
+        const q = query(eventsRef, where('clientEmail', '==', clientEmail))
+        const snap = await getDocs(q)
+        return snap.docs
+            .map((d) => eventFromFirestore(d.id, d.data()))
+            .sort((a, b) => b.eventDate.getTime() - a.eventDate.getTime())
     },
 
     async getById(id: string): Promise<Event | null> {

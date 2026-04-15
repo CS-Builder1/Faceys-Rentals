@@ -5,3 +5,4 @@ build/
 .next/
 coverage/
 .vercel/
+vite-dev*.log

@@ -15,7 +15,7 @@ import {
     type DocumentData,
 } from 'firebase/firestore'
 import { db, secondaryAuth, toDate, toTimestamp } from './firebase'
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth'
+import { createUserWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence } from 'firebase/auth'
 import type { Employee, WorkLogEntry, UserRole } from '../types'
 
 const EMPLOYEES_COLLECTION = 'employees'
@@ -114,6 +114,8 @@ export const employeeService = {
         phone: string
         hourlyRate: number
     }): Promise<string> {
+        // Force secondary auth to memory persistence to prevent overwriting the admin's session
+        await setPersistence(secondaryAuth, inMemoryPersistence)
         // 1. Create the user in Auth
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, data.email, data.password)
         const uid = userCredential.user.uid

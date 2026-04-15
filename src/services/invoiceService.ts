@@ -57,9 +57,11 @@ export const invoiceService = {
     },
 
     async getByStatus(status: InvoiceStatus): Promise<Invoice[]> {
-        const q = query(invoicesRef, where('status', '==', status), orderBy('createdAt', 'desc'))
+        const q = query(invoicesRef, where('status', '==', status))
         const snap = await getDocs(q)
-        return snap.docs.map((d) => invoiceFromFirestore(d.id, d.data()))
+        return snap.docs
+            .map((d) => invoiceFromFirestore(d.id, d.data()))
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     },
 
     async getByEvent(eventId: string): Promise<Invoice[]> {
@@ -118,9 +120,11 @@ function paymentToFirestore(payment: Partial<Payment>): DocumentData {
 
 export const paymentService = {
     async getByInvoice(invoiceId: string): Promise<Payment[]> {
-        const q = query(paymentsRef, where('invoiceId', '==', invoiceId), orderBy('paymentDate', 'desc'))
+        const q = query(paymentsRef, where('invoiceId', '==', invoiceId))
         const snap = await getDocs(q)
-        return snap.docs.map((d) => paymentFromFirestore(d.id, d.data()))
+        return snap.docs
+            .map((d) => paymentFromFirestore(d.id, d.data()))
+            .sort((a, b) => b.paymentDate.getTime() - a.paymentDate.getTime())
     },
 
     async create(payment: Omit<Payment, 'id'>): Promise<string> {
